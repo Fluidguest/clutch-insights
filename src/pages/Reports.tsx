@@ -44,8 +44,9 @@ export default function Reports() {
     filtered.forEach(d => {
       if (!map[d.size]) map[d.size] = { reused: 0, swapped: 0 };
       d.parts.forEach(p => {
-        if (p.status === 'reaproveitar') map[d.size].reused++;
-        else map[d.size].swapped++;
+        const qty = p.quantity || 1;
+        if (p.status === 'reaproveitar') map[d.size].reused += qty;
+        else map[d.size].swapped += qty;
       });
     });
     return Object.entries(map).map(([size, v]) => ({ size, ...v }));
