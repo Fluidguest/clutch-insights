@@ -26,10 +26,11 @@ export default function Reports() {
   const stats = useMemo(() => {
     const totalDiscs = filtered.length;
     const allParts = filtered.flatMap(d => d.parts);
-    const reused = allParts.filter(p => p.status === 'reaproveitar').length;
-    const swapped = allParts.filter(p => p.status === 'trocar').length;
-    const pct = allParts.length > 0 ? Math.round((reused / allParts.length) * 100) : 0;
-    return { totalDiscs, reused, swapped, pct, totalParts: allParts.length };
+    const reused = allParts.filter(p => p.status === 'reaproveitar').reduce((s, p) => s + (p.quantity || 1), 0);
+    const swapped = allParts.filter(p => p.status === 'trocar').reduce((s, p) => s + (p.quantity || 1), 0);
+    const total = reused + swapped;
+    const pct = total > 0 ? Math.round((reused / total) * 100) : 0;
+    return { totalDiscs, reused, swapped, pct, totalParts: total };
   }, [filtered]);
 
   const pieData = [
