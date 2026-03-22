@@ -16,7 +16,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22' # Atualizado para a versão exigida pelo Capacitor 8
 
       - name: Install dependencies
         run: npm install
@@ -40,7 +40,7 @@ jobs:
           if [ -d "android" ]; then
             cd android
             chmod +x gradlew
-            ./gradlew assembleDebug --stacktrace
+            ./gradlew assembleDebug
           else
             echo "Erro: Pasta 'android' não encontrada após o sync."
             exit 1
