@@ -32,7 +32,7 @@ jobs:
 
       - name: Add Android platform
         run: |
-          npx cap add android
+          npx cap add android || echo "Android already added"
           npx cap sync android
 
       - name: Build Android APK
