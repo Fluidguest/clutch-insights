@@ -3,6 +3,7 @@
 export interface DiscPart {
   name: string;
   status: 'reaproveitar' | 'trocar';
+  quantity: number;
 }
 
 export interface Disc {
