@@ -39,6 +39,19 @@ export default function NewDisc() {
     ));
   };
 
+  const handleQtyChange = (idx: number, value: string) => {
+    const num = parseInt(value);
+    if (!isNaN(num)) {
+      setParts(prev => prev.map((p, i) =>
+        i === idx ? { ...p, quantity: Math.max(1, num) } : p
+      ));
+    } else if (value === '') {
+      setParts(prev => prev.map((p, i) =>
+        i === idx ? { ...p, quantity: 0 } : p
+      ));
+    }
+  };
+
   const handleSave = () => {
     const disc = {
       id: generateId(),
@@ -117,14 +130,20 @@ export default function NewDisc() {
                         {reuse ? 'Reaproveitar' : 'Trocar'} ↔
                       </button>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => updateQty(idx, -1)}
                         className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
                       >
                         <Minus className="w-4 h-4" />
                       </button>
-                      <span className="w-8 text-center font-bold text-base tabular-nums">{part.quantity}</span>
+                      <input
+                        type="number"
+                        value={part.quantity === 0 ? '' : part.quantity}
+                        onChange={(e) => handleQtyChange(idx, e.target.value)}
+                        className="w-12 h-9 text-center font-bold text-base bg-transparent border-none focus:ring-0 tabular-nums"
+                        inputMode="numeric"
+                      />
                       <button
                         onClick={() => updateQty(idx, 1)}
                         className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
