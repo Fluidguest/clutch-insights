@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { RefreshCw, Recycle, ArrowLeft } from 'lucide-react';
+import { RefreshCw, Recycle, ArrowLeft, Minus, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function NewDisc() {
@@ -16,7 +16,7 @@ export default function NewDisc() {
   const [refNumber, setRefNumber] = useState('');
   const [prodNumber, setProdNumber] = useState('');
   const [parts, setParts] = useState<DiscPart[]>(
-    DEFAULT_PARTS.map(name => ({ name, status: 'reaproveitar' }))
+    DEFAULT_PARTS.map(name => ({ name, status: 'reaproveitar', quantity: 1 }))
   );
 
   const handleNext = () => {
@@ -30,6 +30,12 @@ export default function NewDisc() {
   const togglePart = (idx: number) => {
     setParts(prev => prev.map((p, i) =>
       i === idx ? { ...p, status: p.status === 'reaproveitar' ? 'trocar' : 'reaproveitar' } : p
+    ));
+  };
+
+  const updateQty = (idx: number, delta: number) => {
+    setParts(prev => prev.map((p, i) =>
+      i === idx ? { ...p, quantity: Math.max(1, p.quantity + delta) } : p
     ));
   };
 
@@ -81,33 +87,53 @@ export default function NewDisc() {
             <ArrowLeft className="w-4 h-4" /> Voltar
           </button>
           <h1 className="text-xl font-bold mb-1">Peças do Disco</h1>
-          <p className="text-sm text-muted-foreground mb-4">Toque para alternar entre reaproveitar e trocar</p>
+          <p className="text-sm text-muted-foreground mb-4">Defina quantidade e status de cada peça</p>
 
           <div className="space-y-2">
             {parts.map((part, idx) => {
               const reuse = part.status === 'reaproveitar';
               return (
-                <button
+                <div
                   key={idx}
-                  onClick={() => togglePart(idx)}
-                  className={`w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-all active:scale-[0.98] ${
-                    reuse
-                      ? 'border-success/40 bg-success/5'
-                      : 'border-destructive/40 bg-destructive/5'
+                  className={`w-full rounded-lg border-2 transition-all overflow-hidden ${
+                    reuse ? 'border-success/40 bg-success/5' : 'border-destructive/40 bg-destructive/5'
                   }`}
                 >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                    reuse ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'
-                  }`}>
-                    {reuse ? <Recycle className="w-5 h-5" /> : <RefreshCw className="w-5 h-5" />}
+                  <div className="flex items-center gap-3 p-4">
+                    <button
+                      onClick={() => togglePart(idx)}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 active:scale-95 ${
+                        reuse ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'
+                      }`}
+                    >
+                      {reuse ? <Recycle className="w-5 h-5" /> : <RefreshCw className="w-5 h-5" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-sm block">{part.name}</span>
+                      <button
+                        onClick={() => togglePart(idx)}
+                        className={`text-xs font-semibold mt-0.5 ${reuse ? 'text-success' : 'text-destructive'}`}
+                      >
+                        {reuse ? 'Reaproveitar' : 'Trocar'} ↔
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => updateQty(idx, -1)}
+                        className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="w-8 text-center font-bold text-base tabular-nums">{part.quantity}</span>
+                      <button
+                        onClick={() => updateQty(idx, 1)}
+                        className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <span className="font-medium text-sm flex-1 text-left">{part.name}</span>
-                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                    reuse ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'
-                  }`}>
-                    {reuse ? 'Reaproveitar' : 'Trocar'}
-                  </span>
-                </button>
+                </div>
               );
             })}
           </div>

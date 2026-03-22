@@ -19,9 +19,10 @@ export default function DiscDetail() {
     );
   }
 
-  const reuse = disc.parts.filter(p => p.status === 'reaproveitar').length;
-  const swap = disc.parts.filter(p => p.status === 'trocar').length;
-  const pct = disc.parts.length > 0 ? Math.round((reuse / disc.parts.length) * 100) : 0;
+  const totalQty = disc.parts.reduce((s, p) => s + (p.quantity || 1), 0);
+  const reuseQty = disc.parts.filter(p => p.status === 'reaproveitar').reduce((s, p) => s + (p.quantity || 1), 0);
+  const swapQty = disc.parts.filter(p => p.status === 'trocar').reduce((s, p) => s + (p.quantity || 1), 0);
+  const pct = totalQty > 0 ? Math.round((reuseQty / totalQty) * 100) : 0;
 
   const handleDelete = () => {
     deleteDisc(disc.id);
@@ -45,23 +46,24 @@ export default function DiscDetail() {
       </div>
 
       <div className="flex gap-2 mb-4">
-        <Stat label="Reaproveitar" value={reuse} color="text-success" />
-        <Stat label="Trocar" value={swap} color="text-destructive" />
+        <Stat label="Reaproveitar" value={reuseQty} color="text-success" />
+        <Stat label="Trocar" value={swapQty} color="text-destructive" />
         <Stat label="Reaprov. %" value={`${pct}%`} color="text-primary" />
       </div>
 
       <h2 className="font-semibold text-sm mb-2">Peças</h2>
       <div className="space-y-2 mb-6">
         {disc.parts.map((part, idx) => {
-          const reuse = part.status === 'reaproveitar';
+          const isReuse = part.status === 'reaproveitar';
           return (
             <div key={idx} className={`flex items-center gap-3 p-3 rounded-lg border ${
-              reuse ? 'border-success/30 bg-success/5' : 'border-destructive/30 bg-destructive/5'
+              isReuse ? 'border-success/30 bg-success/5' : 'border-destructive/30 bg-destructive/5'
             }`}>
-              {reuse ? <Recycle className="w-4 h-4 text-success" /> : <RefreshCw className="w-4 h-4 text-destructive" />}
+              {isReuse ? <Recycle className="w-4 h-4 text-success" /> : <RefreshCw className="w-4 h-4 text-destructive" />}
               <span className="text-sm flex-1">{part.name}</span>
-              <span className={`text-xs font-semibold ${reuse ? 'text-success' : 'text-destructive'}`}>
-                {reuse ? 'Reaproveitar' : 'Trocar'}
+              <span className="text-xs font-medium text-muted-foreground mr-1">×{part.quantity || 1}</span>
+              <span className={`text-xs font-semibold ${isReuse ? 'text-success' : 'text-destructive'}`}>
+                {isReuse ? 'Reaproveitar' : 'Trocar'}
               </span>
             </div>
           );
