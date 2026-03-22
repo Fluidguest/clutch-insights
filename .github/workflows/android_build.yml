@@ -37,9 +37,14 @@ jobs:
 
       - name: Build Android APK
         run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          if [ -d "android" ]; then
+            cd android
+            chmod +x gradlew
+            ./gradlew assembleDebug --stacktrace
+          else
+            echo "Erro: Pasta 'android' não encontrada após o sync."
+            exit 1
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
