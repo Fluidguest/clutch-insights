@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react';
-import { getAllDiscs } from '@/lib/db';
+import { getAllDiscs, type Disc } from '@/lib/db';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Filter, TrendingUp } from 'lucide-react';
+import { Filter, TrendingUp, FileDown, Recycle, RefreshCw } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { jsPDF } from 'jspdf';
 
 export default function Reports() {
   const allDiscs = useMemo(() => getAllDiscs(), []);
@@ -33,6 +37,23 @@ export default function Reports() {
     return { totalDiscs, reused, swapped, pct, totalParts: total };
   }, [filtered]);
 
+  // Grouped parts breakdown
+  const partsByName = useMemo(() => {
+    const swapMap: Record<string, number> = {};
+    const reuseMap: Record<string, number> = {};
+    filtered.forEach(d => {
+      d.parts.forEach(p => {
+        const qty = p.quantity || 1;
+        if (p.status === 'trocar') {
+          swapMap[p.name] = (swapMap[p.name] || 0) + qty;
+        } else {
+          reuseMap[p.name] = (reuseMap[p.name] || 0) + qty;
+        }
+      });
+    });
+    return { swapMap, reuseMap };
+  }, [filtered]);
+
   const pieData = [
     { name: 'Reaproveitadas', value: stats.reused },
     { name: 'Substituídas', value: stats.swapped },
@@ -51,6 +72,107 @@ export default function Reports() {
     });
     return Object.entries(map).map(([size, v]) => ({ size, ...v }));
   }, [filtered]);
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    const pageW = doc.internal.pageSize.getWidth();
+    let y = 20;
+
+    const addLine = (text: string, size = 10, bold = false) => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.setFontSize(size);
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.text(text, 14, y);
+      y += size * 0.5 + 3;
+    };
+
+    const addSeparator = () => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.setDrawColor(200);
+      doc.line(14, y, pageW - 14, y);
+      y += 5;
+    };
+
+    // Header
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Relatorio de Discos de Embreagem', 14, y);
+    y += 10;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 14, y);
+    y += 5;
+    if (dateFrom || dateTo) {
+      doc.text(`Periodo: ${dateFrom || '...'} a ${dateTo || '...'}`, 14, y);
+      y += 5;
+    }
+    if (sizeFilter) { doc.text(`Filtro tamanho: ${sizeFilter}`, 14, y); y += 5; }
+    if (refFilter) { doc.text(`Filtro referencia: ${refFilter}`, 14, y); y += 5; }
+    y += 3;
+    addSeparator();
+
+    // Summary
+    addLine('RESUMO GERAL', 13, true);
+    addLine(`Discos analisados: ${stats.totalDiscs}`);
+    addLine(`Total de pecas: ${stats.totalParts}`);
+    addLine(`Pecas reaproveitadas: ${stats.reused}`);
+    addLine(`Pecas substituidas: ${stats.swapped}`);
+    addLine(`Percentual de reaproveitamento: ${stats.pct}%`);
+    y += 3;
+    addSeparator();
+
+    // Swapped parts grouped
+    const swapEntries = Object.entries(partsByName.swapMap).sort((a, b) => b[1] - a[1]);
+    if (swapEntries.length > 0) {
+      addLine('PECAS SUBSTITUIDAS (por tipo)', 13, true);
+      swapEntries.forEach(([name, qty]) => addLine(`  - ${name}: ${qty} unidade(s)`));
+      y += 3;
+      addSeparator();
+    }
+
+    // Reused parts grouped
+    const reuseEntries = Object.entries(partsByName.reuseMap).sort((a, b) => b[1] - a[1]);
+    if (reuseEntries.length > 0) {
+      addLine('PECAS REAPROVEITADAS (por tipo)', 13, true);
+      reuseEntries.forEach(([name, qty]) => addLine(`  - ${name}: ${qty} unidade(s)`));
+      y += 3;
+      addSeparator();
+    }
+
+    // Per-disc detail
+    addLine('DETALHAMENTO POR DISCO', 13, true);
+    y += 2;
+    filtered.forEach((disc, idx) => {
+      if (y > 250) { doc.addPage(); y = 20; }
+      addLine(`Disco ${idx + 1}`, 11, true);
+      addLine(`  Data: ${format(new Date(disc.date), "dd/MM/yyyy", { locale: ptBR })}`);
+      addLine(`  Tamanho: ${disc.size}`);
+      addLine(`  N. Referencia: ${disc.referenceNumber}`);
+      addLine(`  Quantidade de producao: ${disc.productionNumber}`);
+      disc.parts.forEach(p => {
+        const label = p.status === 'reaproveitar' ? 'Reaprov.' : 'Trocar';
+        addLine(`    - ${p.name}: ${p.quantity || 1}x (${label})`);
+      });
+      y += 4;
+    });
+
+    doc.save(`relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+  };
+
+  const exportCSV = () => {
+    const rows = [['Data', 'Tamanho', 'Referencia', 'Quantidade de producao', 'Peca', 'Quantidade', 'Status']];
+    filtered.forEach(d => {
+      d.parts.forEach(p => {
+        rows.push([d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 1), p.status === 'reaproveitar' ? 'Reaproveitar' : 'Trocar']);
+      });
+    });
+    const csv = rows.map(r => r.join(';')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.click();
+  };
 
   return (
     <div className="px-4 pt-4 pb-24 max-w-lg mx-auto animate-fade-in">
@@ -92,8 +214,53 @@ export default function Reports() {
         <StatCard label="Peças substituídas" value={stats.swapped} />
       </div>
 
+      {/* Export buttons */}
+      {filtered.length > 0 && (
+        <div className="flex gap-2 mb-6">
+          <Button onClick={exportPDF} className="flex-1 h-12 text-sm font-semibold">
+            <FileDown className="w-4 h-4 mr-1.5" /> Exportar PDF
+          </Button>
+          <Button variant="outline" onClick={exportCSV} className="flex-1 h-12 text-sm font-semibold">
+            <FileDown className="w-4 h-4 mr-1.5" /> Exportar CSV
+          </Button>
+        </div>
+      )}
+
+      {/* Parts breakdown */}
       {stats.totalParts > 0 && (
         <>
+          {Object.keys(partsByName.swapMap).length > 0 && (
+            <>
+              <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
+                <RefreshCw className="w-4 h-4 text-destructive" /> Peças Substituídas
+              </h2>
+              <div className="bg-card rounded-lg border border-border p-3 mb-4 space-y-1.5">
+                {Object.entries(partsByName.swapMap).sort((a, b) => b[1] - a[1]).map(([name, qty]) => (
+                  <div key={name} className="flex justify-between items-center py-1.5 px-2 rounded-md bg-destructive/5">
+                    <span className="text-sm">{name}</span>
+                    <span className="text-sm font-bold text-destructive">{qty} un.</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {Object.keys(partsByName.reuseMap).length > 0 && (
+            <>
+              <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
+                <Recycle className="w-4 h-4 text-success" /> Peças Reaproveitadas
+              </h2>
+              <div className="bg-card rounded-lg border border-border p-3 mb-4 space-y-1.5">
+                {Object.entries(partsByName.reuseMap).sort((a, b) => b[1] - a[1]).map(([name, qty]) => (
+                  <div key={name} className="flex justify-between items-center py-1.5 px-2 rounded-md bg-success/5">
+                    <span className="text-sm">{name}</span>
+                    <span className="text-sm font-bold text-success">{qty} un.</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           <h2 className="font-semibold text-sm mb-2 flex items-center gap-1"><TrendingUp className="w-4 h-4" /> Distribuição</h2>
           <div className="bg-card rounded-lg border border-border p-4 mb-4">
             <ResponsiveContainer width="100%" height={180}>
