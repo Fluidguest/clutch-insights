@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronRight, Package } from 'lucide-react';
 import { useMemo } from 'react';
+import logo from '@/assets/logo.png';
 
 export default function DiscList() {
   const navigate = useNavigate();
@@ -11,8 +12,13 @@ export default function DiscList() {
 
   return (
     <div className="px-4 pt-4 pb-24 max-w-lg mx-auto animate-fade-in">
-      <h1 className="text-xl font-bold mb-1">Discos Cadastrados</h1>
-      <p className="text-sm text-muted-foreground mb-4">{discs.length} registro(s)</p>
+      <div className="flex items-center gap-3 mb-4">
+        <img src={logo} alt="Logo Controle Embreagem" className="w-10 h-10 rounded-lg" />
+        <div>
+          <h1 className="text-xl font-bold leading-tight">Discos Cadastrados</h1>
+          <p className="text-sm text-muted-foreground">{discs.length} registro(s)</p>
+        </div>
+      </div>
 
       {discs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
