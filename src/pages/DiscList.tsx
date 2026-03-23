@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronRight, Package } from 'lucide-react';
 import { useMemo } from 'react';
+import logo from '@/assets/logo.png';
 
 export default function DiscList() {
   const navigate = useNavigate();
