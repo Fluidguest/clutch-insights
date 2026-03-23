@@ -77,7 +77,7 @@ export default function Reports() {
     return Object.entries(map).map(([size, v]) => ({ size, ...v }));
   }, [filtered]);
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
     const doc = new jsPDF();
     const pageW = doc.internal.pageSize.getWidth();
     let y = 20;
