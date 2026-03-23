@@ -8,6 +8,10 @@ import { Filter, TrendingUp, FileDown, Recycle, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { toast } from '@/hooks/use-toast';
 
 export default function Reports() {
   const allDiscs = useMemo(() => getAllDiscs(), []);
