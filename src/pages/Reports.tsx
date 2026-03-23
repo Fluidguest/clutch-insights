@@ -160,7 +160,29 @@ export default function Reports() {
       y += 4;
     });
 
-    doc.save(`relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    const fileName = `relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const pdfBase64 = doc.output('datauristring').split(',')[1];
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: pdfBase64,
+          directory: Directory.Cache,
+        });
+        await Share.share({
+          title: 'Relatório de Discos',
+          url: result.uri,
+        });
+        toast({ title: 'PDF gerado com sucesso!' });
+      } catch (err) {
+        console.error('Erro ao exportar PDF:', err);
+        toast({ title: 'Erro ao exportar PDF', variant: 'destructive' });
+      }
+    } else {
+      doc.save(fileName);
+      toast({ title: 'PDF baixado com sucesso!' });
+    }
   };
 
   const exportCSV = () => {
