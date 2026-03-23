@@ -86,7 +86,7 @@ export default function NewDisc() {
               <Input id="ref" placeholder="Número de referência" value={refNumber} onChange={e => setRefNumber(e.target.value)} className="mt-1 h-12 text-base" />
             </div>
             <div>
-              <Label htmlFor="prod">Nº de produção *</Label>
+              <Label htmlFor="prod">Quantidade de produção *</Label>
               <Input id="prod" placeholder="Código interno único" value={prodNumber} onChange={e => setProdNumber(e.target.value)} className="mt-1 h-12 text-base" />
             </div>
             <Button onClick={handleNext} className="w-full h-14 text-base font-semibold mt-2">

@@ -35,7 +35,7 @@ export default function DiscList() {
                   <Package className="w-5 h-5 text-accent-foreground" />
                 </div>
                 <div className="flex-1 text-left min-w-0">
-                  <p className="font-semibold text-sm truncate">Prod: {disc.productionNumber}</p>
+                  <p className="font-semibold text-sm truncate">Qtd. Prod: {disc.productionNumber}</p>
                   <p className="text-xs text-muted-foreground">
                     {format(new Date(disc.date), "dd/MM/yyyy", { locale: ptBR })} · {disc.size}
                   </p>

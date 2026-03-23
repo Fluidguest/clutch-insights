@@ -42,7 +42,7 @@ export default function DiscDetail() {
         <Row label="Data" value={format(new Date(disc.date), "dd/MM/yyyy", { locale: ptBR })} />
         <Row label="Tamanho" value={disc.size} />
         <Row label="Nº Referência" value={disc.referenceNumber} />
-        <Row label="Nº Produção" value={disc.productionNumber} />
+        <Row label="Quantidade de produção" value={disc.productionNumber} />
       </div>
 
       <div className="flex gap-2 mb-4">
