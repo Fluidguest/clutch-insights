@@ -8,6 +8,10 @@ import { Filter, TrendingUp, FileDown, Recycle, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { toast } from '@/hooks/use-toast';
 
 export default function Reports() {
   const allDiscs = useMemo(() => getAllDiscs(), []);
@@ -73,7 +77,7 @@ export default function Reports() {
     return Object.entries(map).map(([size, v]) => ({ size, ...v }));
   }, [filtered]);
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
     const doc = new jsPDF();
     const pageW = doc.internal.pageSize.getWidth();
     let y = 20;
@@ -156,10 +160,32 @@ export default function Reports() {
       y += 4;
     });
 
-    doc.save(`relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    const fileName = `relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const pdfBase64 = doc.output('datauristring').split(',')[1];
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: pdfBase64,
+          directory: Directory.Cache,
+        });
+        await Share.share({
+          title: 'Relatório de Discos',
+          url: result.uri,
+        });
+        toast({ title: 'PDF gerado com sucesso!' });
+      } catch (err) {
+        console.error('Erro ao exportar PDF:', err);
+        toast({ title: 'Erro ao exportar PDF', variant: 'destructive' });
+      }
+    } else {
+      doc.save(fileName);
+      toast({ title: 'PDF baixado com sucesso!' });
+    }
   };
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     const rows = [['Data', 'Tamanho', 'Referencia', 'Quantidade de producao', 'Peca', 'Quantidade', 'Status']];
     filtered.forEach(d => {
       d.parts.forEach(p => {
@@ -167,11 +193,33 @@ export default function Reports() {
       });
     });
     const csv = rows.map(r => r.join(';')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    link.click();
+    const fileName = `relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const csvBase64 = btoa(unescape(encodeURIComponent(csv)));
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: csvBase64,
+          directory: Directory.Cache,
+        });
+        await Share.share({
+          title: 'Relatório CSV',
+          url: result.uri,
+        });
+        toast({ title: 'CSV gerado com sucesso!' });
+      } catch (err) {
+        console.error('Erro ao exportar CSV:', err);
+        toast({ title: 'Erro ao exportar CSV', variant: 'destructive' });
+      }
+    } else {
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      link.click();
+      toast({ title: 'CSV baixado com sucesso!' });
+    }
   };
 
   return (
