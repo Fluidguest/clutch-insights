@@ -185,7 +185,7 @@ export default function Reports() {
     }
   };
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     const rows = [['Data', 'Tamanho', 'Referencia', 'Quantidade de producao', 'Peca', 'Quantidade', 'Status']];
     filtered.forEach(d => {
       d.parts.forEach(p => {
@@ -193,11 +193,33 @@ export default function Reports() {
       });
     });
     const csv = rows.map(r => r.join(';')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    link.click();
+    const fileName = `relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const csvBase64 = btoa(unescape(encodeURIComponent(csv)));
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: csvBase64,
+          directory: Directory.Cache,
+        });
+        await Share.share({
+          title: 'Relatório CSV',
+          url: result.uri,
+        });
+        toast({ title: 'CSV gerado com sucesso!' });
+      } catch (err) {
+        console.error('Erro ao exportar CSV:', err);
+        toast({ title: 'Erro ao exportar CSV', variant: 'destructive' });
+      }
+    } else {
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      link.click();
+      toast({ title: 'CSV baixado com sucesso!' });
+    }
   };
 
   return (
