@@ -14,7 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      disc_parts: {
+        Row: {
+          disc_id: string
+          id: string
+          name: string
+          quantity: number
+          status: string
+        }
+        Insert: {
+          disc_id: string
+          id?: string
+          name: string
+          quantity?: number
+          status: string
+        }
+        Update: {
+          disc_id?: string
+          id?: string
+          name?: string
+          quantity?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disc_parts_disc_id_fkey"
+            columns: ["disc_id"]
+            isOneToOne: false
+            referencedRelation: "discs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discs: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          production_number: string
+          reference_number: string
+          size: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          production_number: string
+          reference_number: string
+          size: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          production_number?: string
+          reference_number?: string
+          size?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
