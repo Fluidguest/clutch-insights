@@ -1,26 +1,40 @@
 import { useNavigate } from 'react-router-dom';
-import { getAllDiscs } from '@/lib/db';
+import { getAllDiscs, type Disc } from '@/lib/db';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronRight, Package } from 'lucide-react';
-import { useMemo } from 'react';
+import { ChevronRight, Package, LogOut } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import logo from '@/assets/logo.png';
 
 export default function DiscList() {
   const navigate = useNavigate();
-  const discs = useMemo(() => getAllDiscs().sort((a, b) => b.createdAt.localeCompare(a.createdAt)), []);
+  const { signOut } = useAuth();
+  const [discs, setDiscs] = useState<Disc[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getAllDiscs().then(d => { setDiscs(d); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
 
   return (
     <div className="px-4 pt-4 pb-24 max-w-lg mx-auto animate-fade-in">
       <div className="flex items-center gap-3 mb-4">
         <img src={logo} alt="Logo Controle Embreagem" className="w-10 h-10 rounded-lg" />
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold leading-tight">Discos Cadastrados</h1>
           <p className="text-sm text-muted-foreground">{discs.length} registro(s)</p>
         </div>
+        <button onClick={signOut} className="p-2 text-muted-foreground active:scale-95" title="Sair">
+          <LogOut className="w-5 h-5" />
+        </button>
       </div>
 
-      {discs.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-20 text-muted-foreground">
+          <p>Carregando...</p>
+        </div>
+      ) : discs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
           <Package className="w-16 h-16 mb-4 opacity-40" />
           <p className="text-lg font-medium">Nenhum disco cadastrado</p>
