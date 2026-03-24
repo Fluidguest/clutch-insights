@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllDiscs, type Disc } from '@/lib/db';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,18 +8,25 @@ import { Filter, TrendingUp, FileDown, Recycle, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { toast } from '@/hooks/use-toast';
 
 export default function Reports() {
-  const allDiscs = useMemo(() => getAllDiscs(), []);
+  const [allDiscs, setAllDiscs] = useState<Disc[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [sizeFilter, setSizeFilter] = useState('');
   const [refFilter, setRefFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const chartsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getAllDiscs().then(d => { setAllDiscs(d); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
 
   const filtered = useMemo(() => {
     return allDiscs.filter(d => {
@@ -41,7 +48,6 @@ export default function Reports() {
     return { totalDiscs, reused, swapped, pct, totalParts: total };
   }, [filtered]);
 
-  // Grouped parts breakdown
   const partsByName = useMemo(() => {
     const swapMap: Record<string, number> = {};
     const reuseMap: Record<string, number> = {};
@@ -125,6 +131,28 @@ export default function Reports() {
     y += 3;
     addSeparator();
 
+    // Capture charts as image
+    if (chartsRef.current) {
+      try {
+        const canvas = await html2canvas(chartsRef.current, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          useCORS: true,
+        });
+        const imgData = canvas.toDataURL('image/png');
+        const imgW = pageW - 28;
+        const imgH = (canvas.height / canvas.width) * imgW;
+
+        if (y + imgH > 270) { doc.addPage(); y = 20; }
+        addLine('GRAFICOS', 13, true);
+        doc.addImage(imgData, 'PNG', 14, y, imgW, imgH);
+        y += imgH + 10;
+        addSeparator();
+      } catch (err) {
+        console.error('Erro ao capturar gráficos:', err);
+      }
+    }
+
     // Swapped parts grouped
     const swapEntries = Object.entries(partsByName.swapMap).sort((a, b) => b[1] - a[1]);
     if (swapEntries.length > 0) {
@@ -170,10 +198,7 @@ export default function Reports() {
           data: pdfBase64,
           directory: Directory.Cache,
         });
-        await Share.share({
-          title: 'Relatório de Discos',
-          url: result.uri,
-        });
+        await Share.share({ title: 'Relatório de Discos', url: result.uri });
         toast({ title: 'PDF gerado com sucesso!' });
       } catch (err) {
         console.error('Erro ao exportar PDF:', err);
@@ -203,10 +228,7 @@ export default function Reports() {
           data: csvBase64,
           directory: Directory.Cache,
         });
-        await Share.share({
-          title: 'Relatório CSV',
-          url: result.uri,
-        });
+        await Share.share({ title: 'Relatório CSV', url: result.uri });
         toast({ title: 'CSV gerado com sucesso!' });
       } catch (err) {
         console.error('Erro ao exportar CSV:', err);
@@ -221,6 +243,10 @@ export default function Reports() {
       toast({ title: 'CSV baixado com sucesso!' });
     }
   };
+
+  if (loading) {
+    return <div className="px-4 pt-4 pb-24 max-w-lg mx-auto"><p className="text-center text-muted-foreground mt-20">Carregando...</p></div>;
+  }
 
   return (
     <div className="px-4 pt-4 pb-24 max-w-lg mx-auto animate-fade-in">
@@ -309,42 +335,45 @@ export default function Reports() {
             </>
           )}
 
-          <h2 className="font-semibold text-sm mb-2 flex items-center gap-1"><TrendingUp className="w-4 h-4" /> Distribuição</h2>
-          <div className="bg-card rounded-lg border border-border p-4 mb-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={4}>
-                  {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex justify-center gap-6 mt-2">
-              {pieData.map((d, i) => (
-                <div key={i} className="flex items-center gap-1.5 text-xs">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[i] }} />
-                  {d.name}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {barData.length > 0 && (
-            <>
-              <h2 className="font-semibold text-sm mb-2">Por Tamanho</h2>
-              <div className="bg-card rounded-lg border border-border p-4">
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={barData}>
-                    <XAxis dataKey="size" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="reused" name="Reaprov." fill="hsl(142, 71%, 45%)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="swapped" name="Troca" fill="hsl(0, 72%, 51%)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+          {/* Charts section - wrapped in ref for PDF capture */}
+          <div ref={chartsRef}>
+            <h2 className="font-semibold text-sm mb-2 flex items-center gap-1"><TrendingUp className="w-4 h-4" /> Distribuição</h2>
+            <div className="bg-card rounded-lg border border-border p-4 mb-4">
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={4}>
+                    {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex justify-center gap-6 mt-2">
+                {pieData.map((d, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-xs">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[i] }} />
+                    {d.name}
+                  </div>
+                ))}
               </div>
-            </>
-          )}
+            </div>
+
+            {barData.length > 0 && (
+              <>
+                <h2 className="font-semibold text-sm mb-2">Por Tamanho</h2>
+                <div className="bg-card rounded-lg border border-border p-4">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={barData}>
+                      <XAxis dataKey="size" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="reused" name="Reaprov." fill="hsl(142, 71%, 45%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="swapped" name="Troca" fill="hsl(0, 72%, 51%)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            )}
+          </div>
         </>
       )}
     </div>

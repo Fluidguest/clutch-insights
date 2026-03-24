@@ -1,22 +1,32 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { getDisc, deleteDisc } from '@/lib/db';
+import { getDisc, deleteDisc, type Disc } from '@/lib/db';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ArrowLeft, Recycle, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { useEffect, useState } from 'react';
 
 export default function DiscDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const disc = id ? getDisc(id) : undefined;
+  const [disc, setDisc] = useState<Disc | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (id) {
+      getDisc(id).then(d => { setDisc(d); setLoading(false); }).catch(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, [id]);
+
+  if (loading) {
+    return <div className="px-4 pt-4 pb-24 max-w-lg mx-auto"><p className="text-center text-muted-foreground mt-20">Carregando...</p></div>;
+  }
 
   if (!disc) {
-    return (
-      <div className="px-4 pt-4 pb-24 max-w-lg mx-auto">
-        <p className="text-center text-muted-foreground mt-20">Disco não encontrado</p>
-      </div>
-    );
+    return <div className="px-4 pt-4 pb-24 max-w-lg mx-auto"><p className="text-center text-muted-foreground mt-20">Disco não encontrado</p></div>;
   }
 
   const totalQty = disc.parts.reduce((s, p) => s + (p.quantity || 1), 0);
@@ -24,8 +34,8 @@ export default function DiscDetail() {
   const swapQty = disc.parts.filter(p => p.status === 'trocar').reduce((s, p) => s + (p.quantity || 1), 0);
   const pct = totalQty > 0 ? Math.round((reuseQty / totalQty) * 100) : 0;
 
-  const handleDelete = () => {
-    deleteDisc(disc.id);
+  const handleDelete = async () => {
+    await deleteDisc(disc.id);
     toast.success('Disco removido');
     navigate('/');
   };

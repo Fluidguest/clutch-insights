@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DEFAULT_PARTS, saveDisc, generateId, type DiscPart } from '@/lib/db';
+import { DEFAULT_PARTS, saveDisc, type DiscPart } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ export default function NewDisc() {
   const [size, setSize] = useState('');
   const [refNumber, setRefNumber] = useState('');
   const [prodNumber, setProdNumber] = useState('');
+  const [saving, setSaving] = useState(false);
   const [parts, setParts] = useState<DiscPart[]>(
     DEFAULT_PARTS.map(name => ({ name, status: 'reaproveitar', quantity: 1 }))
   );
@@ -52,19 +53,23 @@ export default function NewDisc() {
     }
   };
 
-  const handleSave = () => {
-    const disc = {
-      id: generateId(),
-      date,
-      size,
-      referenceNumber: refNumber,
-      productionNumber: prodNumber,
-      parts,
-      createdAt: new Date().toISOString(),
-    };
-    saveDisc(disc);
-    toast.success('Disco cadastrado com sucesso!');
-    navigate('/');
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await saveDisc({
+        date,
+        size,
+        referenceNumber: refNumber,
+        productionNumber: prodNumber,
+        parts,
+      });
+      toast.success('Disco cadastrado com sucesso!');
+      navigate('/');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao salvar disco');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -157,8 +162,8 @@ export default function NewDisc() {
             })}
           </div>
 
-          <Button onClick={handleSave} className="w-full h-14 text-base font-semibold mt-6">
-            Salvar Disco
+          <Button onClick={handleSave} disabled={saving} className="w-full h-14 text-base font-semibold mt-6">
+            {saving ? 'Salvando...' : 'Salvar Disco'}
           </Button>
         </>
       )}
