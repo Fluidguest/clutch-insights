@@ -1,4 +1,4 @@
-// Local storage based DB for offline-first operation
+import { supabase } from '@/integrations/supabase/client';
 
 export interface DiscPart {
   name: string;
@@ -16,8 +16,6 @@ export interface Disc {
   createdAt: string;
 }
 
-const STORAGE_KEY = 'clutch_discs_data';
-
 export const DEFAULT_PARTS = [
   'Chapa lisa',
   'Chapa disco',
@@ -28,31 +26,83 @@ export const DEFAULT_PARTS = [
   'Mola externa',
 ];
 
-export function getAllDiscs(): Disc[] {
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : [];
+export async function getAllDiscs(): Promise<Disc[]> {
+  const { data: discs, error } = await supabase
+    .from('discs')
+    .select('*, disc_parts(*)')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (discs || []).map(d => ({
+    id: d.id,
+    date: d.date,
+    size: d.size,
+    referenceNumber: d.reference_number,
+    productionNumber: d.production_number,
+    parts: (d.disc_parts || []).map((p: any) => ({
+      name: p.name,
+      status: p.status as 'reaproveitar' | 'trocar',
+      quantity: p.quantity,
+    })),
+    createdAt: d.created_at,
+  }));
 }
 
-export function getDisc(id: string): Disc | undefined {
-  return getAllDiscs().find(d => d.id === id);
+export async function getDisc(id: string): Promise<Disc | undefined> {
+  const { data, error } = await supabase
+    .from('discs')
+    .select('*, disc_parts(*)')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !data) return undefined;
+
+  return {
+    id: data.id,
+    date: data.date,
+    size: data.size,
+    referenceNumber: data.reference_number,
+    productionNumber: data.production_number,
+    parts: (data.disc_parts || []).map((p: any) => ({
+      name: p.name,
+      status: p.status as 'reaproveitar' | 'trocar',
+      quantity: p.quantity,
+    })),
+    createdAt: data.created_at,
+  };
 }
 
-export function saveDisc(disc: Disc): void {
-  const discs = getAllDiscs();
-  const idx = discs.findIndex(d => d.id === disc.id);
-  if (idx >= 0) {
-    discs[idx] = disc;
-  } else {
-    discs.push(disc);
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(discs));
+export async function saveDisc(disc: Omit<Disc, 'id' | 'createdAt'>): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Não autenticado');
+
+  const { data, error } = await supabase
+    .from('discs')
+    .insert({
+      user_id: user.id,
+      date: disc.date,
+      size: disc.size,
+      reference_number: disc.referenceNumber,
+      production_number: disc.productionNumber,
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) throw error || new Error('Erro ao salvar disco');
+
+  const partsToInsert = disc.parts.map(p => ({
+    disc_id: data.id,
+    name: p.name,
+    status: p.status,
+    quantity: p.quantity,
+  }));
+
+  const { error: partsError } = await supabase.from('disc_parts').insert(partsToInsert);
+  if (partsError) throw partsError;
 }
 
-export function deleteDisc(id: string): void {
-  const discs = getAllDiscs().filter(d => d.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(discs));
-}
-
-export function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+export async function deleteDisc(id: string): Promise<void> {
+  const { error } = await supabase.from('discs').delete().eq('id', id);
+  if (error) throw error;
 }
