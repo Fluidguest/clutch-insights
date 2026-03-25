@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { RefreshCw, Recycle, ArrowLeft, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, Minus, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function NewDisc() {
@@ -25,30 +25,44 @@ export default function NewDisc() {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
+    const prodQty = parseInt(prodNumber);
+    if (isNaN(prodQty) || prodQty < 1) {
+      toast.error('Quantidade de produção deve ser um número válido');
+      return;
+    }
+    // Initialize all parts with production quantity, all as reaproveitar
+    setParts(prev => prev.map(p => ({ ...p, quantity: prodQty, status: 'reaproveitar' as const })));
     setStep(2);
   };
 
-  const togglePart = (idx: number) => {
-    setParts(prev => prev.map((p, i) =>
-      i === idx ? { ...p, status: p.status === 'reaproveitar' ? 'trocar' : 'reaproveitar' } : p
-    ));
-  };
-
   const updateQty = (idx: number, delta: number) => {
-    setParts(prev => prev.map((p, i) =>
-      i === idx ? { ...p, quantity: Math.max(1, p.quantity + delta) } : p
-    ));
+    const prodQty = parseInt(prodNumber) || 1;
+    setParts(prev => prev.map((p, i) => {
+      if (i !== idx) return p;
+      const newQty = Math.max(0, Math.min(prodQty, p.quantity + delta));
+      return {
+        ...p,
+        quantity: newQty,
+        status: newQty < prodQty ? 'trocar' as const : 'reaproveitar' as const,
+      };
+    }));
   };
 
   const handleQtyChange = (idx: number, value: string) => {
+    const prodQty = parseInt(prodNumber) || 1;
     const num = parseInt(value);
     if (!isNaN(num)) {
+      const clamped = Math.max(0, Math.min(prodQty, num));
       setParts(prev => prev.map((p, i) =>
-        i === idx ? { ...p, quantity: Math.max(1, num) } : p
+        i === idx ? {
+          ...p,
+          quantity: clamped,
+          status: clamped < prodQty ? 'trocar' as const : 'reaproveitar' as const,
+        } : p
       ));
     } else if (value === '') {
       setParts(prev => prev.map((p, i) =>
-        i === idx ? { ...p, quantity: 0 } : p
+        i === idx ? { ...p, quantity: 0, status: 'trocar' as const } : p
       ));
     }
   };
@@ -72,6 +86,8 @@ export default function NewDisc() {
     }
   };
 
+  const prodQty = parseInt(prodNumber) || 1;
+
   return (
     <div className="px-4 pt-4 pb-24 max-w-lg mx-auto animate-fade-in">
       {step === 1 ? (
@@ -92,7 +108,7 @@ export default function NewDisc() {
             </div>
             <div>
               <Label htmlFor="prod">Quantidade de produção *</Label>
-              <Input id="prod" placeholder="Código interno único" value={prodNumber} onChange={e => setProdNumber(e.target.value)} className="mt-1 h-12 text-base" />
+              <Input id="prod" type="number" inputMode="numeric" placeholder="Ex: 10" value={prodNumber} onChange={e => setProdNumber(e.target.value)} className="mt-1 h-12 text-base" />
             </div>
             <Button onClick={handleNext} className="w-full h-14 text-base font-semibold mt-2">
               Próximo — Selecionar Peças
@@ -105,35 +121,34 @@ export default function NewDisc() {
             <ArrowLeft className="w-4 h-4" /> Voltar
           </button>
           <h1 className="text-xl font-bold mb-1">Peças do Disco</h1>
-          <p className="text-sm text-muted-foreground mb-4">Defina quantidade e status de cada peça</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            Quantidade de produção: <strong>{prodQty}</strong> — Diminua a quantidade para indicar peças trocadas
+          </p>
 
           <div className="space-y-2">
             {parts.map((part, idx) => {
-              const reuse = part.status === 'reaproveitar';
+              const trocadas = prodQty - part.quantity;
+              const hasSwaps = trocadas > 0;
               return (
                 <div
                   key={idx}
                   className={`w-full rounded-lg border-2 transition-all overflow-hidden ${
-                    reuse ? 'border-success/40 bg-success/5' : 'border-destructive/40 bg-destructive/5'
+                    hasSwaps ? 'border-destructive/40 bg-destructive/5' : 'border-success/40 bg-success/5'
                   }`}
                 >
                   <div className="flex items-center gap-3 p-4">
-                    <button
-                      onClick={() => togglePart(idx)}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 active:scale-95 ${
-                        reuse ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'
-                      }`}
-                    >
-                      {reuse ? <Recycle className="w-5 h-5" /> : <RefreshCw className="w-5 h-5" />}
-                    </button>
                     <div className="flex-1 min-w-0">
                       <span className="font-medium text-sm block">{part.name}</span>
-                      <button
-                        onClick={() => togglePart(idx)}
-                        className={`text-xs font-semibold mt-0.5 ${reuse ? 'text-success' : 'text-destructive'}`}
-                      >
-                        {reuse ? 'Reaproveitar' : 'Trocar'} ↔
-                      </button>
+                      <div className="flex gap-3 mt-1">
+                        <span className="text-xs text-success font-semibold">
+                          Reaprov: {part.quantity}
+                        </span>
+                        {hasSwaps && (
+                          <span className="text-xs text-destructive font-semibold">
+                            Trocadas: {trocadas}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
@@ -144,7 +159,7 @@ export default function NewDisc() {
                       </button>
                       <input
                         type="number"
-                        value={part.quantity === 0 ? '' : part.quantity}
+                        value={part.quantity}
                         onChange={(e) => handleQtyChange(idx, e.target.value)}
                         className="w-12 h-9 text-center font-bold text-base bg-transparent border-none focus:ring-0 tabular-nums"
                         inputMode="numeric"
