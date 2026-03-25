@@ -11,7 +11,7 @@ export default function BottomNav() {
     { path: '/', icon: ClipboardList, label: 'Discos' },
     { path: '/new', icon: PlusCircle, label: 'Novo' },
     { path: '/reports', icon: BarChart3, label: 'Relatórios' },
-    ...(isAdmin ? [{ path: '/admin', icon: Shield, label: 'Admin' }] : []),
+    { path: '/admin', icon: Shield, label: 'Admin' },
   ];
 
   return (

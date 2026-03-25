@@ -59,6 +59,19 @@ export default function Admin() {
     loadUsers();
   };
 
+  const becomeAdmin = async () => {
+    if (!user) return;
+    const { error } = await supabase
+      .from('user_roles')
+      .insert({ user_id: user.id, role: 'admin' });
+    if (error) {
+      toast.error('Não foi possível. Já existe um administrador.');
+      return;
+    }
+    toast.success('Você agora é administrador!');
+    window.location.reload();
+  };
+
   if (!isAdmin) {
     return (
       <div className="px-4 pt-4 pb-24 max-w-lg mx-auto">
@@ -66,6 +79,10 @@ export default function Admin() {
           <Shield className="w-16 h-16 mb-4 opacity-40" />
           <p className="text-lg font-medium">Acesso restrito</p>
           <p className="text-sm mt-1">Apenas administradores podem acessar</p>
+          <Button onClick={becomeAdmin} className="mt-4">
+            Tornar-me Administrador
+          </Button>
+          <p className="text-xs mt-2 text-center">Disponível apenas se nenhum admin existir</p>
         </div>
       </div>
     );
