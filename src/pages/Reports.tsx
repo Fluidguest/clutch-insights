@@ -40,9 +40,16 @@ export default function Reports() {
 
   const stats = useMemo(() => {
     const totalDiscs = filtered.length;
-    const allParts = filtered.flatMap(d => d.parts);
-    const reused = allParts.filter(p => p.status === 'reaproveitar').reduce((s, p) => s + (p.quantity || 1), 0);
-    const swapped = allParts.filter(p => p.status === 'trocar').reduce((s, p) => s + (p.quantity || 1), 0);
+    let reused = 0;
+    let swapped = 0;
+    filtered.forEach(d => {
+      const prodQty = parseInt(d.productionNumber) || 1;
+      d.parts.forEach(p => {
+        const qty = p.quantity || 0;
+        reused += qty;
+        swapped += Math.max(0, prodQty - qty);
+      });
+    });
     const total = reused + swapped;
     const pct = total > 0 ? Math.round((reused / total) * 100) : 0;
     return { totalDiscs, reused, swapped, pct, totalParts: total };
@@ -52,13 +59,12 @@ export default function Reports() {
     const swapMap: Record<string, number> = {};
     const reuseMap: Record<string, number> = {};
     filtered.forEach(d => {
+      const prodQty = parseInt(d.productionNumber) || 1;
       d.parts.forEach(p => {
-        const qty = p.quantity || 1;
-        if (p.status === 'trocar') {
-          swapMap[p.name] = (swapMap[p.name] || 0) + qty;
-        } else {
-          reuseMap[p.name] = (reuseMap[p.name] || 0) + qty;
-        }
+        const qty = p.quantity || 0;
+        const trocadas = Math.max(0, prodQty - qty);
+        if (qty > 0) reuseMap[p.name] = (reuseMap[p.name] || 0) + qty;
+        if (trocadas > 0) swapMap[p.name] = (swapMap[p.name] || 0) + trocadas;
       });
     });
     return { swapMap, reuseMap };
@@ -73,11 +79,12 @@ export default function Reports() {
   const barData = useMemo(() => {
     const map: Record<string, { reused: number; swapped: number }> = {};
     filtered.forEach(d => {
+      const prodQty = parseInt(d.productionNumber) || 1;
       if (!map[d.size]) map[d.size] = { reused: 0, swapped: 0 };
       d.parts.forEach(p => {
-        const qty = p.quantity || 1;
-        if (p.status === 'reaproveitar') map[d.size].reused += qty;
-        else map[d.size].swapped += qty;
+        const qty = p.quantity || 0;
+        map[d.size].reused += qty;
+        map[d.size].swapped += Math.max(0, prodQty - qty);
       });
     });
     return Object.entries(map).map(([size, v]) => ({ size, ...v }));
@@ -103,7 +110,6 @@ export default function Reports() {
       y += 5;
     };
 
-    // Header
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.text('Relatorio de Discos de Embreagem', 14, y);
@@ -121,7 +127,6 @@ export default function Reports() {
     y += 3;
     addSeparator();
 
-    // Summary
     addLine('RESUMO GERAL', 13, true);
     addLine(`Discos analisados: ${stats.totalDiscs}`);
     addLine(`Total de pecas: ${stats.totalParts}`);
@@ -131,7 +136,6 @@ export default function Reports() {
     y += 3;
     addSeparator();
 
-    // Capture charts as image
     if (chartsRef.current) {
       try {
         const canvas = await html2canvas(chartsRef.current, {
@@ -142,7 +146,6 @@ export default function Reports() {
         const imgData = canvas.toDataURL('image/png');
         const imgW = pageW - 28;
         const imgH = (canvas.height / canvas.width) * imgW;
-
         if (y + imgH > 270) { doc.addPage(); y = 20; }
         addLine('GRAFICOS', 13, true);
         doc.addImage(imgData, 'PNG', 14, y, imgW, imgH);
@@ -153,7 +156,6 @@ export default function Reports() {
       }
     }
 
-    // Swapped parts grouped
     const swapEntries = Object.entries(partsByName.swapMap).sort((a, b) => b[1] - a[1]);
     if (swapEntries.length > 0) {
       addLine('PECAS SUBSTITUIDAS (por tipo)', 13, true);
@@ -162,7 +164,6 @@ export default function Reports() {
       addSeparator();
     }
 
-    // Reused parts grouped
     const reuseEntries = Object.entries(partsByName.reuseMap).sort((a, b) => b[1] - a[1]);
     if (reuseEntries.length > 0) {
       addLine('PECAS REAPROVEITADAS (por tipo)', 13, true);
@@ -171,19 +172,19 @@ export default function Reports() {
       addSeparator();
     }
 
-    // Per-disc detail
     addLine('DETALHAMENTO POR DISCO', 13, true);
     y += 2;
     filtered.forEach((disc, idx) => {
       if (y > 250) { doc.addPage(); y = 20; }
+      const prodQty = parseInt(disc.productionNumber) || 1;
       addLine(`Disco ${idx + 1}`, 11, true);
       addLine(`  Data: ${format(new Date(disc.date), "dd/MM/yyyy", { locale: ptBR })}`);
       addLine(`  Tamanho: ${disc.size}`);
       addLine(`  N. Referencia: ${disc.referenceNumber}`);
       addLine(`  Quantidade de producao: ${disc.productionNumber}`);
       disc.parts.forEach(p => {
-        const label = p.status === 'reaproveitar' ? 'Reaprov.' : 'Trocar';
-        addLine(`    - ${p.name}: ${p.quantity || 1}x (${label})`);
+        const trocadas = Math.max(0, prodQty - (p.quantity || 0));
+        addLine(`    - ${p.name}: Reaprov. ${p.quantity || 0} | Troca ${trocadas}`);
       });
       y += 4;
     });
@@ -211,10 +212,12 @@ export default function Reports() {
   };
 
   const exportCSV = async () => {
-    const rows = [['Data', 'Tamanho', 'Referencia', 'Quantidade de producao', 'Peca', 'Quantidade', 'Status']];
+    const rows = [['Data', 'Tamanho', 'Referencia', 'Quantidade de producao', 'Peca', 'Reaproveitadas', 'Trocadas']];
     filtered.forEach(d => {
+      const prodQty = parseInt(d.productionNumber) || 1;
       d.parts.forEach(p => {
-        rows.push([d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 1), p.status === 'reaproveitar' ? 'Reaproveitar' : 'Trocar']);
+        const trocadas = Math.max(0, prodQty - (p.quantity || 0));
+        rows.push([d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 0), String(trocadas)]);
       });
     });
     const csv = rows.map(r => r.join(';')).join('\n');
@@ -280,7 +283,6 @@ export default function Reports() {
         </div>
       )}
 
-      {/* Stats */}
       <div className="grid grid-cols-2 gap-2 mb-6">
         <StatCard label="Discos analisados" value={stats.totalDiscs} />
         <StatCard label="Reaproveitamento" value={`${stats.pct}%`} accent />
@@ -288,7 +290,6 @@ export default function Reports() {
         <StatCard label="Peças substituídas" value={stats.swapped} />
       </div>
 
-      {/* Export buttons */}
       {filtered.length > 0 && (
         <div className="flex gap-2 mb-6">
           <Button onClick={exportPDF} className="flex-1 h-12 text-sm font-semibold">
@@ -300,7 +301,6 @@ export default function Reports() {
         </div>
       )}
 
-      {/* Parts breakdown */}
       {stats.totalParts > 0 && (
         <>
           {Object.keys(partsByName.swapMap).length > 0 && (
@@ -335,7 +335,6 @@ export default function Reports() {
             </>
           )}
 
-          {/* Charts section - wrapped in ref for PDF capture */}
           <div ref={chartsRef}>
             <h2 className="font-semibold text-sm mb-2 flex items-center gap-1"><TrendingUp className="w-4 h-4" /> Distribuição</h2>
             <div className="bg-card rounded-lg border border-border p-4 mb-4">

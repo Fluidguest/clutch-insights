@@ -1,15 +1,18 @@
-import { ClipboardList, PlusCircle, BarChart3 } from 'lucide-react';
+import { ClipboardList, PlusCircle, BarChart3, Shield } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-
-const tabs = [
-  { path: '/', icon: ClipboardList, label: 'Discos' },
-  { path: '/new', icon: PlusCircle, label: 'Novo' },
-  { path: '/reports', icon: BarChart3, label: 'Relatórios' },
-];
+import { useAuth } from '@/hooks/useAuth';
 
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+
+  const tabs = [
+    { path: '/', icon: ClipboardList, label: 'Discos' },
+    { path: '/new', icon: PlusCircle, label: 'Novo' },
+    { path: '/reports', icon: BarChart3, label: 'Relatórios' },
+    ...(isAdmin ? [{ path: '/admin', icon: Shield, label: 'Admin' }] : []),
+  ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border safe-bottom z-50">

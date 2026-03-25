@@ -29,10 +29,11 @@ export default function DiscDetail() {
     return <div className="px-4 pt-4 pb-24 max-w-lg mx-auto"><p className="text-center text-muted-foreground mt-20">Disco não encontrado</p></div>;
   }
 
-  const totalQty = disc.parts.reduce((s, p) => s + (p.quantity || 1), 0);
-  const reuseQty = disc.parts.filter(p => p.status === 'reaproveitar').reduce((s, p) => s + (p.quantity || 1), 0);
-  const swapQty = disc.parts.filter(p => p.status === 'trocar').reduce((s, p) => s + (p.quantity || 1), 0);
-  const pct = totalQty > 0 ? Math.round((reuseQty / totalQty) * 100) : 0;
+  const prodQty = parseInt(disc.productionNumber) || 1;
+  const totalReused = disc.parts.reduce((s, p) => s + (p.quantity || 0), 0);
+  const totalSwapped = disc.parts.reduce((s, p) => s + Math.max(0, prodQty - (p.quantity || 0)), 0);
+  const totalParts = totalReused + totalSwapped;
+  const pct = totalParts > 0 ? Math.round((totalReused / totalParts) * 100) : 0;
 
   const handleDelete = async () => {
     await deleteDisc(disc.id);
@@ -56,25 +57,28 @@ export default function DiscDetail() {
       </div>
 
       <div className="flex gap-2 mb-4">
-        <Stat label="Reaproveitar" value={reuseQty} color="text-success" />
-        <Stat label="Trocar" value={swapQty} color="text-destructive" />
+        <Stat label="Reaprov." value={totalReused} color="text-success" />
+        <Stat label="Trocadas" value={totalSwapped} color="text-destructive" />
         <Stat label="Reaprov. %" value={`${pct}%`} color="text-primary" />
       </div>
 
       <h2 className="font-semibold text-sm mb-2">Peças</h2>
       <div className="space-y-2 mb-6">
         {disc.parts.map((part, idx) => {
-          const isReuse = part.status === 'reaproveitar';
+          const trocadas = Math.max(0, prodQty - (part.quantity || 0));
+          const hasSwaps = trocadas > 0;
           return (
             <div key={idx} className={`flex items-center gap-3 p-3 rounded-lg border ${
-              isReuse ? 'border-success/30 bg-success/5' : 'border-destructive/30 bg-destructive/5'
+              hasSwaps ? 'border-destructive/30 bg-destructive/5' : 'border-success/30 bg-success/5'
             }`}>
-              {isReuse ? <Recycle className="w-4 h-4 text-success" /> : <RefreshCw className="w-4 h-4 text-destructive" />}
+              {hasSwaps ? <RefreshCw className="w-4 h-4 text-destructive" /> : <Recycle className="w-4 h-4 text-success" />}
               <span className="text-sm flex-1">{part.name}</span>
-              <span className="text-xs font-medium text-muted-foreground mr-1">×{part.quantity || 1}</span>
-              <span className={`text-xs font-semibold ${isReuse ? 'text-success' : 'text-destructive'}`}>
-                {isReuse ? 'Reaproveitar' : 'Trocar'}
-              </span>
+              <div className="text-right">
+                <span className="text-xs font-medium text-success">Reaprov: {part.quantity || 0}</span>
+                {hasSwaps && (
+                  <span className="text-xs font-medium text-destructive ml-2">Troca: {trocadas}</span>
+                )}
+              </div>
             </div>
           );
         })}
