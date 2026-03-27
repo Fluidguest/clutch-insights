@@ -66,6 +66,7 @@ export async function getDisc(id: string): Promise<Disc | undefined> {
     size: data.size,
     referenceNumber: data.reference_number,
     productionNumber: data.production_number,
+    observation: data.observation || undefined,
     parts: (data.disc_parts || []).map((p: any) => ({
       name: p.name,
       status: p.status as 'reaproveitar' | 'trocar',
