@@ -51,6 +51,7 @@ export type Database = {
           created_at: string
           date: string
           id: string
+          observation: string | null
           production_number: string
           reference_number: string
           size: string
@@ -60,6 +61,7 @@ export type Database = {
           created_at?: string
           date: string
           id?: string
+          observation?: string | null
           production_number: string
           reference_number: string
           size: string
@@ -69,6 +71,7 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          observation?: string | null
           production_number?: string
           reference_number?: string
           size?: string
