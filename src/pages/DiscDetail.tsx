@@ -54,6 +54,7 @@ export default function DiscDetail() {
         <Row label="Tamanho" value={disc.size} />
         <Row label="Nº Referência" value={disc.referenceNumber} />
         <Row label="Quantidade de produção" value={disc.productionNumber} />
+        {disc.observation && <Row label="Observação" value={disc.observation} />}
       </div>
 
       <div className="flex gap-2 mb-4">
