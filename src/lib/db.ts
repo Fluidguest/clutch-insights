@@ -41,6 +41,7 @@ export async function getAllDiscs(): Promise<Disc[]> {
     size: d.size,
     referenceNumber: d.reference_number,
     productionNumber: d.production_number,
+    observation: d.observation || undefined,
     parts: (d.disc_parts || []).map((p: any) => ({
       name: p.name,
       status: p.status as 'reaproveitar' | 'trocar',
