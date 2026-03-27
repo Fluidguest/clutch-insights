@@ -12,6 +12,7 @@ export interface Disc {
   size: string;
   referenceNumber: string;
   productionNumber: string;
+  observation?: string;
   parts: DiscPart[];
   createdAt: string;
 }
