@@ -3,9 +3,9 @@ import { getAllDiscs, type Disc } from '@/lib/db';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Filter, TrendingUp, FileDown, Recycle, RefreshCw } from 'lucide-react';
-import { format } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { Filter, TrendingUp, FileDown, Recycle, RefreshCw, Calendar } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, parseISO, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -13,6 +13,8 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { toast } from '@/hooks/use-toast';
+
+type ViewMode = 'daily' | 'weekly' | 'monthly';
 
 export default function Reports() {
   const [allDiscs, setAllDiscs] = useState<Disc[]>([]);
@@ -22,6 +24,7 @@ export default function Reports() {
   const [sizeFilter, setSizeFilter] = useState('');
   const [refFilter, setRefFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const chartsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -90,6 +93,60 @@ export default function Reports() {
     return Object.entries(map).map(([size, v]) => ({ size, ...v }));
   }, [filtered]);
 
+  const timelineData = useMemo(() => {
+    if (filtered.length === 0) return [];
+
+    const dates = filtered.map(d => parseISO(d.date)).sort((a, b) => a.getTime() - b.getTime());
+    const minDate = dates[0];
+    const maxDate = dates[dates.length - 1];
+
+    const getLabel = (date: Date) => {
+      if (viewMode === 'daily') return format(date, 'dd/MM', { locale: ptBR });
+      if (viewMode === 'weekly') return `Sem ${format(date, 'dd/MM', { locale: ptBR })}`;
+      return format(date, 'MMM/yy', { locale: ptBR });
+    };
+
+    const intervals: { start: Date; end: Date; label: string }[] = [];
+
+    if (viewMode === 'daily') {
+      eachDayOfInterval({ start: minDate, end: maxDate }).forEach(day => {
+        intervals.push({ start: day, end: day, label: getLabel(day) });
+      });
+    } else if (viewMode === 'weekly') {
+      eachWeekOfInterval({ start: minDate, end: maxDate }, { weekStartsOn: 1 }).forEach(weekStart => {
+        const wEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+        intervals.push({ start: weekStart, end: wEnd, label: getLabel(weekStart) });
+      });
+    } else {
+      eachMonthOfInterval({ start: startOfMonth(minDate), end: endOfMonth(maxDate) }).forEach(monthStart => {
+        const mEnd = endOfMonth(monthStart);
+        intervals.push({ start: monthStart, end: mEnd, label: getLabel(monthStart) });
+      });
+    }
+
+    return intervals.map(({ start, end, label }) => {
+      let reused = 0;
+      let swapped = 0;
+      let discs = 0;
+      filtered.forEach(d => {
+        const dDate = parseISO(d.date);
+        const inRange = viewMode === 'daily'
+          ? format(dDate, 'yyyy-MM-dd') === format(start, 'yyyy-MM-dd')
+          : isWithinInterval(dDate, { start, end });
+        if (inRange) {
+          discs++;
+          const prodQty = parseInt(d.productionNumber) || 1;
+          d.parts.forEach(p => {
+            const qty = p.quantity || 0;
+            reused += qty;
+            swapped += Math.max(0, prodQty - qty);
+          });
+        }
+      });
+      return { label, reused, swapped, discs };
+    }).filter(d => d.discs > 0 || viewMode !== 'daily');
+  }, [filtered, viewMode]);
+
   const exportPDF = async () => {
     const doc = new jsPDF();
     const pageW = doc.internal.pageSize.getWidth();
@@ -117,6 +174,9 @@ export default function Reports() {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 14, y);
+    y += 5;
+    const viewLabel = viewMode === 'daily' ? 'Diária' : viewMode === 'weekly' ? 'Semanal' : 'Mensal';
+    doc.text(`Visao: ${viewLabel}`, 14, y);
     y += 5;
     if (dateFrom || dateTo) {
       doc.text(`Periodo: ${dateFrom || '...'} a ${dateTo || '...'}`, 14, y);
@@ -182,6 +242,9 @@ export default function Reports() {
       addLine(`  Tamanho: ${disc.size}`);
       addLine(`  N. Referencia: ${disc.referenceNumber}`);
       addLine(`  Quantidade de producao: ${disc.productionNumber}`);
+      if (disc.observation) {
+        addLine(`  Observacao: ${disc.observation}`);
+      }
       disc.parts.forEach(p => {
         const trocadas = Math.max(0, prodQty - (p.quantity || 0));
         addLine(`    - ${p.name}: Reaprov. ${p.quantity || 0} | Troca ${trocadas}`);
@@ -212,12 +275,12 @@ export default function Reports() {
   };
 
   const exportCSV = async () => {
-    const rows = [['Data', 'Tamanho', 'Referencia', 'Quantidade de producao', 'Peca', 'Reaproveitadas', 'Trocadas']];
+    const rows = [['Data', 'Tamanho', 'Referencia', 'Quantidade de producao', 'Peca', 'Reaproveitadas', 'Trocadas', 'Observacao']];
     filtered.forEach(d => {
       const prodQty = parseInt(d.productionNumber) || 1;
       d.parts.forEach(p => {
         const trocadas = Math.max(0, prodQty - (p.quantity || 0));
-        rows.push([d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 0), String(trocadas)]);
+        rows.push([d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 0), String(trocadas), d.observation || '']);
       });
     });
     const csv = rows.map(r => r.join(';')).join('\n');
@@ -258,6 +321,24 @@ export default function Reports() {
         <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-1 text-sm text-primary font-medium active:scale-95">
           <Filter className="w-4 h-4" /> Filtros
         </button>
+      </div>
+
+      {/* View Mode Tabs */}
+      <div className="flex gap-1 mb-4 bg-muted rounded-lg p-1">
+        {([['daily', 'Diário'], ['weekly', 'Semanal'], ['monthly', 'Mensal']] as const).map(([mode, label]) => (
+          <button
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
+              viewMode === mode
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            {label}
+          </button>
+        ))}
       </div>
 
       {showFilters && (
@@ -336,6 +417,26 @@ export default function Reports() {
           )}
 
           <div ref={chartsRef}>
+            {/* Timeline Chart */}
+            {timelineData.length > 0 && (
+              <>
+                <h2 className="font-semibold text-sm mb-2 flex items-center gap-1">
+                  <Calendar className="w-4 h-4" /> Evolução {viewMode === 'daily' ? 'Diária' : viewMode === 'weekly' ? 'Semanal' : 'Mensal'}
+                </h2>
+                <div className="bg-card rounded-lg border border-border p-4 mb-4">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={timelineData}>
+                      <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="reused" name="Reaprov." stroke="hsl(142, 71%, 45%)" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="swapped" name="Trocadas" stroke="hsl(0, 72%, 51%)" strokeWidth={2} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </>
+            )}
+
             <h2 className="font-semibold text-sm mb-2 flex items-center gap-1"><TrendingUp className="w-4 h-4" /> Distribuição</h2>
             <div className="bg-card rounded-lg border border-border p-4 mb-4">
               <ResponsiveContainer width="100%" height={180}>

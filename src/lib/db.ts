@@ -12,6 +12,7 @@ export interface Disc {
   size: string;
   referenceNumber: string;
   productionNumber: string;
+  observation?: string;
   parts: DiscPart[];
   createdAt: string;
 }
@@ -40,6 +41,7 @@ export async function getAllDiscs(): Promise<Disc[]> {
     size: d.size,
     referenceNumber: d.reference_number,
     productionNumber: d.production_number,
+    observation: d.observation || undefined,
     parts: (d.disc_parts || []).map((p: any) => ({
       name: p.name,
       status: p.status as 'reaproveitar' | 'trocar',
@@ -64,6 +66,7 @@ export async function getDisc(id: string): Promise<Disc | undefined> {
     size: data.size,
     referenceNumber: data.reference_number,
     productionNumber: data.production_number,
+    observation: data.observation || undefined,
     parts: (data.disc_parts || []).map((p: any) => ({
       name: p.name,
       status: p.status as 'reaproveitar' | 'trocar',
@@ -85,6 +88,7 @@ export async function saveDisc(disc: Omit<Disc, 'id' | 'createdAt'>): Promise<vo
       size: disc.size,
       reference_number: disc.referenceNumber,
       production_number: disc.productionNumber,
+      observation: disc.observation || null,
     })
     .select('id')
     .single();

@@ -4,6 +4,7 @@ import { DEFAULT_PARTS, saveDisc, type DiscPart } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { ArrowLeft, Minus, Plus } from 'lucide-react';
 import { format } from 'date-fns';
@@ -15,6 +16,7 @@ export default function NewDisc() {
   const [size, setSize] = useState('');
   const [refNumber, setRefNumber] = useState('');
   const [prodNumber, setProdNumber] = useState('');
+  const [observation, setObservation] = useState('');
   const [saving, setSaving] = useState(false);
   const [parts, setParts] = useState<DiscPart[]>(
     DEFAULT_PARTS.map(name => ({ name, status: 'reaproveitar', quantity: 1 }))
@@ -30,16 +32,15 @@ export default function NewDisc() {
       toast.error('Quantidade de produção deve ser um número válido');
       return;
     }
-    // Initialize all parts with production quantity, all as reaproveitar
     setParts(prev => prev.map(p => ({ ...p, quantity: prodQty, status: 'reaproveitar' as const })));
     setStep(2);
   };
 
   const updateQty = (idx: number, delta: number) => {
-    const prodQty = parseInt(prodNumber) || 1;
     setParts(prev => prev.map((p, i) => {
       if (i !== idx) return p;
-      const newQty = Math.max(0, Math.min(prodQty, p.quantity + delta));
+      const prodQty = parseInt(prodNumber) || 1;
+      const newQty = Math.max(0, p.quantity + delta);
       return {
         ...p,
         quantity: newQty,
@@ -52,7 +53,7 @@ export default function NewDisc() {
     const prodQty = parseInt(prodNumber) || 1;
     const num = parseInt(value);
     if (!isNaN(num)) {
-      const clamped = Math.max(0, Math.min(prodQty, num));
+      const clamped = Math.max(0, num);
       setParts(prev => prev.map((p, i) =>
         i === idx ? {
           ...p,
@@ -75,6 +76,7 @@ export default function NewDisc() {
         size,
         referenceNumber: refNumber,
         productionNumber: prodNumber,
+        observation: observation || undefined,
         parts,
       });
       toast.success('Disco cadastrado com sucesso!');
@@ -175,6 +177,18 @@ export default function NewDisc() {
                 </div>
               );
             })}
+          </div>
+
+          <div className="mt-4">
+            <Label htmlFor="obs">Observação (opcional)</Label>
+            <Textarea
+              id="obs"
+              placeholder="Adicione uma observação sobre este disco..."
+              value={observation}
+              onChange={e => setObservation(e.target.value)}
+              className="mt-1 text-sm"
+              rows={3}
+            />
           </div>
 
           <Button onClick={handleSave} disabled={saving} className="w-full h-14 text-base font-semibold mt-6">
