@@ -88,6 +88,7 @@ export async function saveDisc(disc: Omit<Disc, 'id' | 'createdAt'>): Promise<vo
       size: disc.size,
       reference_number: disc.referenceNumber,
       production_number: disc.productionNumber,
+      observation: disc.observation || null,
     })
     .select('id')
     .single();
