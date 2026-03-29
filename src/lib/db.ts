@@ -36,14 +36,14 @@ export interface PartsCatalog {
 }
 
 export async function getPartsCatalog(): Promise<PartsCatalog[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('parts_catalog')
     .select('*')
     .order('display_order', { ascending: true });
 
   if (error) throw error;
 
-  return (data || []).map(p => ({
+  return (data || []).map((p: any) => ({
     id: p.id,
     name: p.name,
     displayOrder: p.display_order,
@@ -53,15 +53,15 @@ export async function getPartsCatalog(): Promise<PartsCatalog[]> {
 }
 
 export async function addPart(name: string, displayOrder?: number): Promise<PartsCatalog> {
-  const { data: existing } = await supabase
+  const { data: existing } = await (supabase as any)
     .from('parts_catalog')
-    .select('id')
+    .select('id, display_order')
     .order('display_order', { ascending: false })
     .limit(1);
 
   const nextOrder = displayOrder ?? ((existing?.[0]?.display_order ?? 0) + 1);
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('parts_catalog')
     .insert({ name, display_order: nextOrder })
     .select()
@@ -84,7 +84,7 @@ export async function updatePart(id: string, name: string, displayOrder?: number
     updates.display_order = displayOrder;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('parts_catalog')
     .update(updates)
     .eq('id', id)
@@ -103,7 +103,7 @@ export async function updatePart(id: string, name: string, displayOrder?: number
 }
 
 export async function deletePart(id: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('parts_catalog')
     .delete()
     .eq('id', id);
