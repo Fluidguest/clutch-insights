@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DEFAULT_PARTS, saveDisc, type DiscPart } from '@/lib/db';
+import { getPartsCatalog, saveDisc, type DiscPart, type PartsCatalog } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,9 +18,22 @@ export default function NewDisc() {
   const [prodNumber, setProdNumber] = useState('');
   const [observation, setObservation] = useState('');
   const [saving, setSaving] = useState(false);
-  const [parts, setParts] = useState<DiscPart[]>(
-    DEFAULT_PARTS.map(name => ({ name, status: 'reaproveitar', quantity: 1 }))
-  );
+  const [parts, setParts] = useState<DiscPart[]>([]);
+  const [partsCatalog, setPartsCatalog] = useState<PartsCatalog[]>([]);
+  const [loadingParts, setLoadingParts] = useState(true);
+
+  useEffect(() => {
+    getPartsCatalog()
+      .then(catalog => {
+        setPartsCatalog(catalog);
+        setParts(catalog.map(p => ({ name: p.name, status: 'reaproveitar', quantity: 1 })));
+        setLoadingParts(false);
+      })
+      .catch(err => {
+        console.error('Erro ao carregar peças:', err);
+        setLoadingParts(false);
+      });
+  }, []);
 
   const handleNext = () => {
     if (!size || !refNumber || !prodNumber) {
@@ -89,6 +102,14 @@ export default function NewDisc() {
   };
 
   const prodQty = parseInt(prodNumber) || 1;
+
+  if (loadingParts) {
+    return (
+      <div className="px-4 pt-4 pb-24 max-w-lg mx-auto">
+        <p className="text-center text-muted-foreground mt-20">Carregando peças...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 pt-4 pb-24 max-w-lg mx-auto animate-fade-in">

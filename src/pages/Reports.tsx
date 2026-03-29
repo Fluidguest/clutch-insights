@@ -26,6 +26,7 @@ export default function Reports() {
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const chartsRef = useRef<HTMLDivElement>(null);
+  const reportHeaderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getAllDiscs().then(d => { setAllDiscs(d); setLoading(false); }).catch(() => setLoading(false));
@@ -130,9 +131,7 @@ export default function Reports() {
       let discs = 0;
       filtered.forEach(d => {
         const dDate = parseISO(d.date);
-        const inRange = viewMode === 'daily'
-          ? format(dDate, 'yyyy-MM-dd') === format(start, 'yyyy-MM-dd')
-          : isWithinInterval(dDate, { start, end });
+        const inRange = isWithinInterval(dDate, { start, end });
         if (inRange) {
           discs++;
           const prodQty = parseInt(d.productionNumber) || 1;
@@ -150,10 +149,11 @@ export default function Reports() {
   const exportPDF = async () => {
     const doc = new jsPDF();
     const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
     let y = 20;
 
     const addLine = (text: string, size = 10, bold = false) => {
-      if (y > 270) { doc.addPage(); y = 20; }
+      if (y > pageH - 20) { doc.addPage(); y = 20; }
       doc.setFontSize(size);
       doc.setFont('helvetica', bold ? 'bold' : 'normal');
       doc.text(text, 14, y);
@@ -161,53 +161,61 @@ export default function Reports() {
     };
 
     const addSeparator = () => {
-      if (y > 270) { doc.addPage(); y = 20; }
+      if (y > pageH - 20) { doc.addPage(); y = 20; }
       doc.setDrawColor(200);
       doc.line(14, y, pageW - 14, y);
       y += 5;
     };
 
+    // Cabeçalho
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('Relatorio de Discos de Embreagem', 14, y);
+    doc.text('Relatório de Discos de Embreagem', 14, y);
     y += 10;
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 14, y);
     y += 5;
     const viewLabel = viewMode === 'daily' ? 'Diária' : viewMode === 'weekly' ? 'Semanal' : 'Mensal';
-    doc.text(`Visao: ${viewLabel}`, 14, y);
+    doc.text(`Visão: ${viewLabel}`, 14, y);
     y += 5;
     if (dateFrom || dateTo) {
-      doc.text(`Periodo: ${dateFrom || '...'} a ${dateTo || '...'}`, 14, y);
+      const fromDate = dateFrom ? format(parseISO(dateFrom), 'dd/MM/yyyy', { locale: ptBR }) : '...';
+      const toDate = dateTo ? format(parseISO(dateTo), 'dd/MM/yyyy', { locale: ptBR }) : '...';
+      doc.text(`Período: ${fromDate} a ${toDate}`, 14, y);
       y += 5;
     }
     if (sizeFilter) { doc.text(`Filtro tamanho: ${sizeFilter}`, 14, y); y += 5; }
-    if (refFilter) { doc.text(`Filtro referencia: ${refFilter}`, 14, y); y += 5; }
+    if (refFilter) { doc.text(`Filtro referência: ${refFilter}`, 14, y); y += 5; }
     y += 3;
     addSeparator();
 
+    // Resumo Geral
     addLine('RESUMO GERAL', 13, true);
     addLine(`Discos analisados: ${stats.totalDiscs}`);
-    addLine(`Total de pecas: ${stats.totalParts}`);
-    addLine(`Pecas reaproveitadas: ${stats.reused}`);
-    addLine(`Pecas substituidas: ${stats.swapped}`);
+    addLine(`Total de peças: ${stats.totalParts}`);
+    addLine(`Peças reaproveitadas: ${stats.reused}`);
+    addLine(`Peças substituídas: ${stats.swapped}`);
     addLine(`Percentual de reaproveitamento: ${stats.pct}%`);
     y += 3;
     addSeparator();
 
+    // Captura de gráficos
     if (chartsRef.current) {
       try {
         const canvas = await html2canvas(chartsRef.current, {
           backgroundColor: '#ffffff',
           scale: 2,
           useCORS: true,
+          logging: false,
         });
         const imgData = canvas.toDataURL('image/png');
         const imgW = pageW - 28;
         const imgH = (canvas.height / canvas.width) * imgW;
-        if (y + imgH > 270) { doc.addPage(); y = 20; }
-        addLine('GRAFICOS', 13, true);
+        
+        if (y + imgH > pageH - 20) { doc.addPage(); y = 20; }
+        addLine('GRÁFICOS', 13, true);
+        y += 2;
         doc.addImage(imgData, 'PNG', 14, y, imgW, imgH);
         y += imgH + 10;
         addSeparator();
@@ -216,34 +224,37 @@ export default function Reports() {
       }
     }
 
+    // Peças Substituídas
     const swapEntries = Object.entries(partsByName.swapMap).sort((a, b) => b[1] - a[1]);
     if (swapEntries.length > 0) {
-      addLine('PECAS SUBSTITUIDAS (por tipo)', 13, true);
+      addLine('PEÇAS SUBSTITUÍDAS (por tipo)', 13, true);
       swapEntries.forEach(([name, qty]) => addLine(`  - ${name}: ${qty} unidade(s)`));
       y += 3;
       addSeparator();
     }
 
+    // Peças Reaproveitadas
     const reuseEntries = Object.entries(partsByName.reuseMap).sort((a, b) => b[1] - a[1]);
     if (reuseEntries.length > 0) {
-      addLine('PECAS REAPROVEITADAS (por tipo)', 13, true);
+      addLine('PEÇAS REAPROVEITADAS (por tipo)', 13, true);
       reuseEntries.forEach(([name, qty]) => addLine(`  - ${name}: ${qty} unidade(s)`));
       y += 3;
       addSeparator();
     }
 
+    // Detalhamento por Disco
     addLine('DETALHAMENTO POR DISCO', 13, true);
     y += 2;
     filtered.forEach((disc, idx) => {
-      if (y > 250) { doc.addPage(); y = 20; }
+      if (y > pageH - 40) { doc.addPage(); y = 20; }
       const prodQty = parseInt(disc.productionNumber) || 1;
       addLine(`Disco ${idx + 1}`, 11, true);
       addLine(`  Data: ${format(new Date(disc.date), "dd/MM/yyyy", { locale: ptBR })}`);
       addLine(`  Tamanho: ${disc.size}`);
-      addLine(`  N. Referencia: ${disc.referenceNumber}`);
-      addLine(`  Quantidade de producao: ${disc.productionNumber}`);
+      addLine(`  N. Referência: ${disc.referenceNumber}`);
+      addLine(`  Quantidade de produção: ${disc.productionNumber}`);
       if (disc.observation) {
-        addLine(`  Observacao: ${disc.observation}`);
+        addLine(`  Observação: ${disc.observation}`);
       }
       disc.parts.forEach(p => {
         const trocadas = Math.max(0, prodQty - (p.quantity || 0));
@@ -275,7 +286,7 @@ export default function Reports() {
   };
 
   const exportCSV = async () => {
-    const rows = [['Data', 'Tamanho', 'Referencia', 'Quantidade de producao', 'Peca', 'Reaproveitadas', 'Trocadas', 'Observacao']];
+    const rows = [['Data', 'Tamanho', 'Referência', 'Quantidade de produção', 'Peça', 'Reaproveitadas', 'Trocadas', 'Observação']];
     filtered.forEach(d => {
       const prodQty = parseInt(d.productionNumber) || 1;
       d.parts.forEach(p => {
@@ -416,7 +427,7 @@ export default function Reports() {
             </>
           )}
 
-          <div ref={chartsRef}>
+          <div ref={chartsRef} className="space-y-4">
             {/* Timeline Chart */}
             {timelineData.length > 0 && (
               <>

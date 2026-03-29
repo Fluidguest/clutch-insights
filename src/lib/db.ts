@@ -27,6 +27,90 @@ export const DEFAULT_PARTS = [
   'Mola externa',
 ];
 
+export interface PartsCatalog {
+  id: string;
+  name: string;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function getPartsCatalog(): Promise<PartsCatalog[]> {
+  const { data, error } = await supabase
+    .from('parts_catalog')
+    .select('*')
+    .order('display_order', { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).map(p => ({
+    id: p.id,
+    name: p.name,
+    displayOrder: p.display_order,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+  }));
+}
+
+export async function addPart(name: string, displayOrder?: number): Promise<PartsCatalog> {
+  const { data: existing } = await supabase
+    .from('parts_catalog')
+    .select('id')
+    .order('display_order', { ascending: false })
+    .limit(1);
+
+  const nextOrder = displayOrder ?? ((existing?.[0]?.display_order ?? 0) + 1);
+
+  const { data, error } = await supabase
+    .from('parts_catalog')
+    .insert({ name, display_order: nextOrder })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    name: data.name,
+    displayOrder: data.display_order,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function updatePart(id: string, name: string, displayOrder?: number): Promise<PartsCatalog> {
+  const updates: any = { name };
+  if (displayOrder !== undefined) {
+    updates.display_order = displayOrder;
+  }
+
+  const { data, error } = await supabase
+    .from('parts_catalog')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    name: data.name,
+    displayOrder: data.display_order,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function deletePart(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('parts_catalog')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
 export async function getAllDiscs(): Promise<Disc[]> {
   const { data: discs, error } = await supabase
     .from('discs')
