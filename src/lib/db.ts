@@ -36,14 +36,14 @@ export interface PartsCatalog {
 }
 
 export async function getPartsCatalog(): Promise<PartsCatalog[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('parts_catalog')
     .select('*')
     .order('display_order', { ascending: true });
 
   if (error) throw error;
 
-  return (data || []).map(p => ({
+  return (data || []).map((p: any) => ({
     id: p.id,
     name: p.name,
     displayOrder: p.display_order,
