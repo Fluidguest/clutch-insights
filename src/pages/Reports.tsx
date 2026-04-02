@@ -283,8 +283,7 @@ export default function Reports() {
     filtered.forEach(d => {
       const prodQty = parseInt(d.productionNumber) || 1;
       d.parts.forEach(p => {
-        const trocadas = Math.max(0, prodQty - (p.quantity || 0));
-        rows.push([d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 0), String(trocadas), d.observation || '']);
+        rows.push([d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 0), String(p.swappedQuantity || 0), d.observation || '']);
       });
     });
     const csv = rows.map(r => r.join(';')).join('\n');
