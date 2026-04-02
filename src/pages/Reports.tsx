@@ -241,7 +241,7 @@ export default function Reports() {
     filtered.forEach((disc, idx) => {
       if (y > pageH - 40) { doc.addPage(); y = 20; }
       const typeLabel = (disc as any).equipmentType === 'plator' ? 'Plator' : 'Disco';
-      addLine(`Disco ${idx + 1}`, 11, true);
+      addLine(`${typeLabel} ${idx + 1}`, 11, true);
       addLine(`  Data: ${format(new Date(disc.date), "dd/MM/yyyy", { locale: ptBR })}`);
       addLine(`  Tamanho: ${disc.size}`);
       addLine(`  N. Referência: ${disc.referenceNumber}`);
