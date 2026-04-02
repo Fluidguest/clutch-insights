@@ -250,8 +250,7 @@ export default function Reports() {
         addLine(`  Observação: ${disc.observation}`);
       }
       disc.parts.forEach(p => {
-        const trocadas = Math.max(0, prodQty - (p.quantity || 0));
-        addLine(`    - ${p.name}: Reaprov. ${p.quantity || 0} | Troca ${trocadas}`);
+        addLine(`    - ${p.name}: Reaprov. ${p.quantity || 0} | Troca ${p.swappedQuantity || 0}`);
       });
       y += 4;
     });
