@@ -61,10 +61,9 @@ export default function Reports() {
     const swapMap: Record<string, number> = {};
     const reuseMap: Record<string, number> = {};
     filtered.forEach(d => {
-      const prodQty = parseInt(d.productionNumber) || 1;
       d.parts.forEach(p => {
         const qty = p.quantity || 0;
-        const trocadas = Math.max(0, prodQty - qty);
+        const trocadas = p.swappedQuantity || 0;
         if (qty > 0) reuseMap[p.name] = (reuseMap[p.name] || 0) + qty;
         if (trocadas > 0) swapMap[p.name] = (swapMap[p.name] || 0) + trocadas;
       });
