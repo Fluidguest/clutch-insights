@@ -129,11 +129,9 @@ export default function Reports() {
         const inRange = isWithinInterval(dDate, { start, end });
         if (inRange) {
           discs++;
-          const prodQty = parseInt(d.productionNumber) || 1;
           d.parts.forEach(p => {
-            const qty = p.quantity || 0;
-            reused += qty;
-            swapped += Math.max(0, prodQty - qty);
+            reused += p.quantity || 0;
+            swapped += p.swappedQuantity || 0;
           });
         }
       });
