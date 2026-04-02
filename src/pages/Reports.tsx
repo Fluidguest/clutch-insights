@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getAllDiscs, type Disc } from '@/lib/db';
+import { getAllDiscs, type Disc, type EquipmentType } from '@/lib/db';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { Filter, TrendingUp, FileDown, Recycle, RefreshCw, Calendar } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, parseISO, isWithinInterval } from 'date-fns';
+import { Filter, TrendingUp, FileDown, Recycle, RefreshCw, Calendar, Disc as DiscIcon, CircleDot } from 'lucide-react';
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, parseISO, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -15,6 +15,7 @@ import { Share } from '@capacitor/share';
 import { toast } from '@/hooks/use-toast';
 
 type ViewMode = 'daily' | 'weekly' | 'monthly';
+type EquipmentFilter = 'all' | EquipmentType;
 
 export default function Reports() {
   const [allDiscs, setAllDiscs] = useState<Disc[]>([]);
@@ -25,8 +26,8 @@ export default function Reports() {
   const [refFilter, setRefFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
+  const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
   const chartsRef = useRef<HTMLDivElement>(null);
-  const reportHeaderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getAllDiscs().then(d => { setAllDiscs(d); setLoading(false); }).catch(() => setLoading(false));
@@ -34,13 +35,14 @@ export default function Reports() {
 
   const filtered = useMemo(() => {
     return allDiscs.filter(d => {
+      if (equipmentFilter !== 'all' && d.equipmentType !== equipmentFilter) return false;
       if (dateFrom && d.date < dateFrom) return false;
       if (dateTo && d.date > dateTo) return false;
       if (sizeFilter && !d.size.toLowerCase().includes(sizeFilter.toLowerCase())) return false;
       if (refFilter && !d.referenceNumber.toLowerCase().includes(refFilter.toLowerCase())) return false;
       return true;
     });
-  }, [allDiscs, dateFrom, dateTo, sizeFilter, refFilter]);
+  }, [allDiscs, dateFrom, dateTo, sizeFilter, refFilter, equipmentFilter]);
 
   const stats = useMemo(() => {
     const totalDiscs = filtered.length;
@@ -106,17 +108,19 @@ export default function Reports() {
 
     if (viewMode === 'daily') {
       eachDayOfInterval({ start: minDate, end: maxDate }).forEach(day => {
-        intervals.push({ start: day, end: day, label: getLabel(day) });
+        intervals.push({ start: startOfDay(day), end: endOfDay(day), label: getLabel(day) });
       });
     } else if (viewMode === 'weekly') {
       eachWeekOfInterval({ start: minDate, end: maxDate }, { weekStartsOn: 1 }).forEach(weekStart => {
+        const wStart = startOfWeek(weekStart, { weekStartsOn: 1 });
         const wEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-        intervals.push({ start: weekStart, end: wEnd, label: getLabel(weekStart) });
+        intervals.push({ start: wStart, end: wEnd, label: getLabel(weekStart) });
       });
     } else {
       eachMonthOfInterval({ start: startOfMonth(minDate), end: endOfMonth(maxDate) }).forEach(monthStart => {
+        const mStart = startOfMonth(monthStart);
         const mEnd = endOfMonth(monthStart);
-        intervals.push({ start: monthStart, end: mEnd, label: getLabel(monthStart) });
+        intervals.push({ start: mStart, end: mEnd, label: getLabel(monthStart) });
       });
     }
 
@@ -126,8 +130,7 @@ export default function Reports() {
       let discs = 0;
       filtered.forEach(d => {
         const dDate = parseISO(d.date);
-        const inRange = isWithinInterval(dDate, { start, end });
-        if (inRange) {
+        if (isWithinInterval(dDate, { start, end })) {
           discs++;
           d.parts.forEach(p => {
             reused += p.quantity || 0;
@@ -160,10 +163,10 @@ export default function Reports() {
       y += 5;
     };
 
-    // Cabeçalho
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('Relatório de Discos de Embreagem', 14, y);
+    const eqLabel = equipmentFilter === 'all' ? 'Geral' : equipmentFilter === 'disco' ? 'Discos' : 'Plators';
+    doc.text(`Relatório - ${eqLabel}`, 14, y);
     y += 10;
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -183,7 +186,6 @@ export default function Reports() {
     y += 3;
     addSeparator();
 
-    // Resumo Geral
     addLine('RESUMO GERAL', 13, true);
     addLine(`Discos analisados: ${stats.totalDiscs}`);
     addLine(`Total de peças: ${stats.totalParts}`);
@@ -193,7 +195,6 @@ export default function Reports() {
     y += 3;
     addSeparator();
 
-    // Captura de gráficos
     if (chartsRef.current) {
       try {
         const canvas = await html2canvas(chartsRef.current, {
@@ -205,7 +206,7 @@ export default function Reports() {
         const imgData = canvas.toDataURL('image/png');
         const imgW = pageW - 28;
         const imgH = (canvas.height / canvas.width) * imgW;
-        
+
         if (y + imgH > pageH - 20) { doc.addPage(); y = 20; }
         addLine('GRÁFICOS', 13, true);
         y += 2;
@@ -217,7 +218,6 @@ export default function Reports() {
       }
     }
 
-    // Peças Substituídas
     const swapEntries = Object.entries(partsByName.swapMap).sort((a, b) => b[1] - a[1]);
     if (swapEntries.length > 0) {
       addLine('PEÇAS SUBSTITUÍDAS (por tipo)', 13, true);
@@ -226,7 +226,6 @@ export default function Reports() {
       addSeparator();
     }
 
-    // Peças Reaproveitadas
     const reuseEntries = Object.entries(partsByName.reuseMap).sort((a, b) => b[1] - a[1]);
     if (reuseEntries.length > 0) {
       addLine('PEÇAS REAPROVEITADAS (por tipo)', 13, true);
@@ -235,12 +234,11 @@ export default function Reports() {
       addSeparator();
     }
 
-    // Detalhamento por Disco
     addLine('DETALHAMENTO POR DISCO', 13, true);
     y += 2;
     filtered.forEach((disc, idx) => {
       if (y > pageH - 40) { doc.addPage(); y = 20; }
-      const typeLabel = (disc as any).equipmentType === 'plator' ? 'Plator' : 'Disco';
+      const typeLabel = disc.equipmentType === 'plator' ? 'Plator' : 'Disco';
       addLine(`${typeLabel} ${idx + 1}`, 11, true);
       addLine(`  Data: ${format(new Date(disc.date), "dd/MM/yyyy", { locale: ptBR })}`);
       addLine(`  Tamanho: ${disc.size}`);
@@ -255,7 +253,7 @@ export default function Reports() {
       y += 4;
     });
 
-    const fileName = `relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+    const fileName = `relatorio-${equipmentFilter}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
 
     if (Capacitor.isNativePlatform()) {
       try {
@@ -265,7 +263,7 @@ export default function Reports() {
           data: pdfBase64,
           directory: Directory.Cache,
         });
-        await Share.share({ title: 'Relatório de Discos', url: result.uri });
+        await Share.share({ title: 'Relatório', url: result.uri });
         toast({ title: 'PDF gerado com sucesso!' });
       } catch (err) {
         console.error('Erro ao exportar PDF:', err);
@@ -278,15 +276,15 @@ export default function Reports() {
   };
 
   const exportCSV = async () => {
-    const rows = [['Data', 'Tamanho', 'Referência', 'Quantidade de produção', 'Peça', 'Reaproveitadas', 'Trocadas', 'Observação']];
+    const rows = [['Tipo', 'Data', 'Tamanho', 'Referência', 'Qtd Produção', 'Peça', 'Reaproveitadas', 'Trocadas', 'Observação']];
     filtered.forEach(d => {
-      const typeLabel = (d as any).equipmentType === 'plator' ? 'Plator' : 'Disco';
+      const typeLabel = d.equipmentType === 'plator' ? 'Plator' : 'Disco';
       d.parts.forEach(p => {
-        rows.push([d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 0), String(p.swappedQuantity || 0), d.observation || '']);
+        rows.push([typeLabel, d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 0), String(p.swappedQuantity || 0), d.observation || '']);
       });
     });
     const csv = rows.map(r => r.join(';')).join('\n');
-    const fileName = `relatorio-discos-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    const fileName = `relatorio-${equipmentFilter}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
 
     if (Capacitor.isNativePlatform()) {
       try {
@@ -323,6 +321,24 @@ export default function Reports() {
         <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-1 text-sm text-primary font-medium active:scale-95">
           <Filter className="w-4 h-4" /> Filtros
         </button>
+      </div>
+
+      {/* Equipment Type Tabs */}
+      <div className="flex gap-1 mb-3 bg-muted rounded-lg p-1">
+        {([['all', 'Geral', null], ['disco', 'Disco', DiscIcon], ['plator', 'Plator', CircleDot]] as const).map(([mode, label, Icon]) => (
+          <button
+            key={mode}
+            onClick={() => setEquipmentFilter(mode as EquipmentFilter)}
+            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
+              equipmentFilter === mode
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {Icon && <Icon className="w-3.5 h-3.5" />}
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* View Mode Tabs */}
@@ -419,7 +435,6 @@ export default function Reports() {
           )}
 
           <div ref={chartsRef} className="space-y-4">
-            {/* Timeline Chart */}
             {timelineData.length > 0 && (
               <>
                 <h2 className="font-semibold text-sm mb-2 flex items-center gap-1">
