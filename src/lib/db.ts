@@ -1,9 +1,12 @@
 import { supabase } from '@/integrations/supabase/client';
 
+export type EquipmentType = 'disco' | 'plator';
+
 export interface DiscPart {
   name: string;
   status: 'reaproveitar' | 'trocar';
   quantity: number;
+  swappedQuantity: number;
 }
 
 export interface Disc {
@@ -13,6 +16,7 @@ export interface Disc {
   referenceNumber: string;
   productionNumber: string;
   observation?: string;
+  equipmentType: EquipmentType;
   parts: DiscPart[];
   createdAt: string;
 }
@@ -31,15 +35,22 @@ export interface PartsCatalog {
   id: string;
   name: string;
   displayOrder: number;
+  equipmentType: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export async function getPartsCatalog(): Promise<PartsCatalog[]> {
-  const { data, error } = await (supabase as any)
+export async function getPartsCatalog(equipmentType?: string): Promise<PartsCatalog[]> {
+  let query = (supabase as any)
     .from('parts_catalog')
     .select('*')
     .order('display_order', { ascending: true });
+
+  if (equipmentType) {
+    query = query.eq('equipment_type', equipmentType);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -47,6 +58,7 @@ export async function getPartsCatalog(): Promise<PartsCatalog[]> {
     id: p.id,
     name: p.name,
     displayOrder: p.display_order,
+    equipmentType: p.equipment_type || 'disco',
     createdAt: p.created_at,
     updatedAt: p.updated_at,
   }));
@@ -73,6 +85,7 @@ export async function addPart(name: string, displayOrder?: number): Promise<Part
     id: data.id,
     name: data.name,
     displayOrder: data.display_order,
+    equipmentType: data.equipment_type || 'disco',
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };
@@ -97,6 +110,7 @@ export async function updatePart(id: string, name: string, displayOrder?: number
     id: data.id,
     name: data.name,
     displayOrder: data.display_order,
+    equipmentType: data.equipment_type || 'disco',
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };
@@ -119,17 +133,19 @@ export async function getAllDiscs(): Promise<Disc[]> {
 
   if (error) throw error;
 
-  return (discs || []).map(d => ({
+  return (discs || []).map((d: any) => ({
     id: d.id,
     date: d.date,
     size: d.size,
     referenceNumber: d.reference_number,
     productionNumber: d.production_number,
     observation: d.observation || undefined,
+    equipmentType: (d.equipment_type || 'disco') as EquipmentType,
     parts: (d.disc_parts || []).map((p: any) => ({
       name: p.name,
       status: p.status as 'reaproveitar' | 'trocar',
       quantity: p.quantity,
+      swappedQuantity: p.swapped_quantity || 0,
     })),
     createdAt: d.created_at,
   }));
@@ -150,11 +166,13 @@ export async function getDisc(id: string): Promise<Disc | undefined> {
     size: data.size,
     referenceNumber: data.reference_number,
     productionNumber: data.production_number,
-    observation: data.observation || undefined,
+    observation: (data as any).observation || undefined,
+    equipmentType: ((data as any).equipment_type || 'disco') as EquipmentType,
     parts: (data.disc_parts || []).map((p: any) => ({
       name: p.name,
       status: p.status as 'reaproveitar' | 'trocar',
       quantity: p.quantity,
+      swappedQuantity: p.swapped_quantity || 0,
     })),
     createdAt: data.created_at,
   };
@@ -164,7 +182,7 @@ export async function saveDisc(disc: Omit<Disc, 'id' | 'createdAt'>): Promise<vo
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Não autenticado');
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('discs')
     .insert({
       user_id: user.id,
@@ -173,6 +191,7 @@ export async function saveDisc(disc: Omit<Disc, 'id' | 'createdAt'>): Promise<vo
       reference_number: disc.referenceNumber,
       production_number: disc.productionNumber,
       observation: disc.observation || null,
+      equipment_type: disc.equipmentType || 'disco',
     })
     .select('id')
     .single();
@@ -182,8 +201,9 @@ export async function saveDisc(disc: Omit<Disc, 'id' | 'createdAt'>): Promise<vo
   const partsToInsert = disc.parts.map(p => ({
     disc_id: data.id,
     name: p.name,
-    status: p.status,
+    status: p.swappedQuantity > 0 ? 'trocar' : 'reaproveitar',
     quantity: p.quantity,
+    swapped_quantity: p.swappedQuantity,
   }));
 
   const { error: partsError } = await supabase.from('disc_parts').insert(partsToInsert);

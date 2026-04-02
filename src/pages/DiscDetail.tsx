@@ -26,18 +26,18 @@ export default function DiscDetail() {
   }
 
   if (!disc) {
-    return <div className="px-4 pt-4 pb-24 max-w-lg mx-auto"><p className="text-center text-muted-foreground mt-20">Disco não encontrado</p></div>;
+    return <div className="px-4 pt-4 pb-24 max-w-lg mx-auto"><p className="text-center text-muted-foreground mt-20">Registro não encontrado</p></div>;
   }
 
-  const prodQty = parseInt(disc.productionNumber) || 1;
+  const typeLabel = disc.equipmentType === 'plator' ? 'Plator' : 'Disco';
   const totalReused = disc.parts.reduce((s, p) => s + (p.quantity || 0), 0);
-  const totalSwapped = disc.parts.reduce((s, p) => s + Math.max(0, prodQty - (p.quantity || 0)), 0);
+  const totalSwapped = disc.parts.reduce((s, p) => s + (p.swappedQuantity || 0), 0);
   const totalParts = totalReused + totalSwapped;
   const pct = totalParts > 0 ? Math.round((totalReused / totalParts) * 100) : 0;
 
   const handleDelete = async () => {
     await deleteDisc(disc.id);
-    toast.success('Disco removido');
+    toast.success(`${typeLabel} removido`);
     navigate('/');
   };
 
@@ -47,9 +47,10 @@ export default function DiscDetail() {
         <ArrowLeft className="w-4 h-4" /> Voltar
       </button>
 
-      <h1 className="text-xl font-bold mb-4">Detalhes do Disco</h1>
+      <h1 className="text-xl font-bold mb-4">Detalhes do {typeLabel}</h1>
 
       <div className="bg-card rounded-lg p-4 border border-border shadow-sm space-y-3 mb-4">
+        <Row label="Tipo" value={typeLabel} />
         <Row label="Data" value={format(new Date(disc.date), "dd/MM/yyyy", { locale: ptBR })} />
         <Row label="Tamanho" value={disc.size} />
         <Row label="Nº Referência" value={disc.referenceNumber} />
@@ -66,8 +67,7 @@ export default function DiscDetail() {
       <h2 className="font-semibold text-sm mb-2">Peças</h2>
       <div className="space-y-2 mb-6">
         {disc.parts.map((part, idx) => {
-          const trocadas = Math.max(0, prodQty - (part.quantity || 0));
-          const hasSwaps = trocadas > 0;
+          const hasSwaps = (part.swappedQuantity || 0) > 0;
           return (
             <div key={idx} className={`flex items-center gap-3 p-3 rounded-lg border ${
               hasSwaps ? 'border-destructive/30 bg-destructive/5' : 'border-success/30 bg-success/5'
@@ -77,7 +77,7 @@ export default function DiscDetail() {
               <div className="text-right">
                 <span className="text-xs font-medium text-success">Reaprov: {part.quantity || 0}</span>
                 {hasSwaps && (
-                  <span className="text-xs font-medium text-destructive ml-2">Troca: {trocadas}</span>
+                  <span className="text-xs font-medium text-destructive ml-2">Troca: {part.swappedQuantity}</span>
                 )}
               </div>
             </div>
@@ -86,7 +86,7 @@ export default function DiscDetail() {
       </div>
 
       <Button variant="destructive" onClick={handleDelete} className="w-full h-12">
-        <Trash2 className="w-4 h-4 mr-2" /> Excluir Disco
+        <Trash2 className="w-4 h-4 mr-2" /> Excluir {typeLabel}
       </Button>
     </div>
   );
