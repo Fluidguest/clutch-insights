@@ -280,7 +280,7 @@ export default function Reports() {
   const exportCSV = async () => {
     const rows = [['Data', 'Tamanho', 'Referência', 'Quantidade de produção', 'Peça', 'Reaproveitadas', 'Trocadas', 'Observação']];
     filtered.forEach(d => {
-      const prodQty = parseInt(d.productionNumber) || 1;
+      const typeLabel = (d as any).equipmentType === 'plator' ? 'Plator' : 'Disco';
       d.parts.forEach(p => {
         rows.push([d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 0), String(p.swappedQuantity || 0), d.observation || '']);
       });
