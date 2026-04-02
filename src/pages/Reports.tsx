@@ -80,12 +80,10 @@ export default function Reports() {
   const barData = useMemo(() => {
     const map: Record<string, { reused: number; swapped: number }> = {};
     filtered.forEach(d => {
-      const prodQty = parseInt(d.productionNumber) || 1;
       if (!map[d.size]) map[d.size] = { reused: 0, swapped: 0 };
       d.parts.forEach(p => {
-        const qty = p.quantity || 0;
-        map[d.size].reused += qty;
-        map[d.size].swapped += Math.max(0, prodQty - qty);
+        map[d.size].reused += p.quantity || 0;
+        map[d.size].swapped += p.swappedQuantity || 0;
       });
     });
     return Object.entries(map).map(([size, v]) => ({ size, ...v }));
