@@ -21,6 +21,7 @@ export type Database = {
           name: string
           quantity: number
           status: string
+          swapped_quantity: number
         }
         Insert: {
           disc_id: string
@@ -28,6 +29,7 @@ export type Database = {
           name: string
           quantity?: number
           status: string
+          swapped_quantity?: number
         }
         Update: {
           disc_id?: string
@@ -35,6 +37,7 @@ export type Database = {
           name?: string
           quantity?: number
           status?: string
+          swapped_quantity?: number
         }
         Relationships: [
           {
@@ -50,6 +53,7 @@ export type Database = {
         Row: {
           created_at: string
           date: string
+          equipment_type: string
           id: string
           observation: string | null
           production_number: string
@@ -60,6 +64,7 @@ export type Database = {
         Insert: {
           created_at?: string
           date: string
+          equipment_type?: string
           id?: string
           observation?: string | null
           production_number: string
@@ -70,6 +75,7 @@ export type Database = {
         Update: {
           created_at?: string
           date?: string
+          equipment_type?: string
           id?: string
           observation?: string | null
           production_number?: string
@@ -83,6 +89,7 @@ export type Database = {
         Row: {
           created_at: string
           display_order: number
+          equipment_type: string
           id: string
           name: string
           updated_at: string
@@ -90,6 +97,7 @@ export type Database = {
         Insert: {
           created_at?: string
           display_order?: number
+          equipment_type?: string
           id?: string
           name: string
           updated_at?: string
@@ -97,6 +105,7 @@ export type Database = {
         Update: {
           created_at?: string
           display_order?: number
+          equipment_type?: string
           id?: string
           name?: string
           updated_at?: string
