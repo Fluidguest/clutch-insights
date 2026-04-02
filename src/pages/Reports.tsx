@@ -47,11 +47,9 @@ export default function Reports() {
     let reused = 0;
     let swapped = 0;
     filtered.forEach(d => {
-      const prodQty = parseInt(d.productionNumber) || 1;
       d.parts.forEach(p => {
-        const qty = p.quantity || 0;
-        reused += qty;
-        swapped += Math.max(0, prodQty - qty);
+        reused += p.quantity || 0;
+        swapped += p.swappedQuantity || 0;
       });
     });
     const total = reused + swapped;
@@ -63,10 +61,9 @@ export default function Reports() {
     const swapMap: Record<string, number> = {};
     const reuseMap: Record<string, number> = {};
     filtered.forEach(d => {
-      const prodQty = parseInt(d.productionNumber) || 1;
       d.parts.forEach(p => {
         const qty = p.quantity || 0;
-        const trocadas = Math.max(0, prodQty - qty);
+        const trocadas = p.swappedQuantity || 0;
         if (qty > 0) reuseMap[p.name] = (reuseMap[p.name] || 0) + qty;
         if (trocadas > 0) swapMap[p.name] = (swapMap[p.name] || 0) + trocadas;
       });
@@ -83,12 +80,10 @@ export default function Reports() {
   const barData = useMemo(() => {
     const map: Record<string, { reused: number; swapped: number }> = {};
     filtered.forEach(d => {
-      const prodQty = parseInt(d.productionNumber) || 1;
       if (!map[d.size]) map[d.size] = { reused: 0, swapped: 0 };
       d.parts.forEach(p => {
-        const qty = p.quantity || 0;
-        map[d.size].reused += qty;
-        map[d.size].swapped += Math.max(0, prodQty - qty);
+        map[d.size].reused += p.quantity || 0;
+        map[d.size].swapped += p.swappedQuantity || 0;
       });
     });
     return Object.entries(map).map(([size, v]) => ({ size, ...v }));
@@ -134,11 +129,9 @@ export default function Reports() {
         const inRange = isWithinInterval(dDate, { start, end });
         if (inRange) {
           discs++;
-          const prodQty = parseInt(d.productionNumber) || 1;
           d.parts.forEach(p => {
-            const qty = p.quantity || 0;
-            reused += qty;
-            swapped += Math.max(0, prodQty - qty);
+            reused += p.quantity || 0;
+            swapped += p.swappedQuantity || 0;
           });
         }
       });
@@ -247,8 +240,8 @@ export default function Reports() {
     y += 2;
     filtered.forEach((disc, idx) => {
       if (y > pageH - 40) { doc.addPage(); y = 20; }
-      const prodQty = parseInt(disc.productionNumber) || 1;
-      addLine(`Disco ${idx + 1}`, 11, true);
+      const typeLabel = (disc as any).equipmentType === 'plator' ? 'Plator' : 'Disco';
+      addLine(`${typeLabel} ${idx + 1}`, 11, true);
       addLine(`  Data: ${format(new Date(disc.date), "dd/MM/yyyy", { locale: ptBR })}`);
       addLine(`  Tamanho: ${disc.size}`);
       addLine(`  N. Referência: ${disc.referenceNumber}`);
@@ -257,8 +250,7 @@ export default function Reports() {
         addLine(`  Observação: ${disc.observation}`);
       }
       disc.parts.forEach(p => {
-        const trocadas = Math.max(0, prodQty - (p.quantity || 0));
-        addLine(`    - ${p.name}: Reaprov. ${p.quantity || 0} | Troca ${trocadas}`);
+        addLine(`    - ${p.name}: Reaprov. ${p.quantity || 0} | Troca ${p.swappedQuantity || 0}`);
       });
       y += 4;
     });
@@ -288,10 +280,9 @@ export default function Reports() {
   const exportCSV = async () => {
     const rows = [['Data', 'Tamanho', 'Referência', 'Quantidade de produção', 'Peça', 'Reaproveitadas', 'Trocadas', 'Observação']];
     filtered.forEach(d => {
-      const prodQty = parseInt(d.productionNumber) || 1;
+      const typeLabel = (d as any).equipmentType === 'plator' ? 'Plator' : 'Disco';
       d.parts.forEach(p => {
-        const trocadas = Math.max(0, prodQty - (p.quantity || 0));
-        rows.push([d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 0), String(trocadas), d.observation || '']);
+        rows.push([d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 0), String(p.swappedQuantity || 0), d.observation || '']);
       });
     });
     const csv = rows.map(r => r.join(';')).join('\n');
