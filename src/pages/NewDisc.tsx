@@ -20,7 +20,7 @@ export default function NewDisc() {
   const [prodNumber, setProdNumber] = useState('');
   const [observation, setObservation] = useState('');
   const [saving, setSaving] = useState(false);
-  const [parts, setParts] = useState<DiscPart[]>([]);
+  const [parts, setParts] = useState<(DiscPart & { enabled: boolean })[]>([]);
   const [allCatalog, setAllCatalog] = useState<PartsCatalog[]>([]);
   const [loadingParts, setLoadingParts] = useState(true);
 
