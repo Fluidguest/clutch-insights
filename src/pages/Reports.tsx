@@ -46,6 +46,7 @@ export default function Reports() {
 
   const stats = useMemo(() => {
     const totalDiscs = filtered.length;
+    const totalProduction = filtered.reduce((sum, d) => sum + (parseInt(d.productionNumber) || 0), 0);
     let reused = 0;
     let swapped = 0;
     filtered.forEach(d => {
@@ -56,7 +57,7 @@ export default function Reports() {
     });
     const total = reused + swapped;
     const pct = total > 0 ? Math.round((reused / total) * 100) : 0;
-    return { totalDiscs, reused, swapped, pct, totalParts: total };
+    return { totalDiscs, totalProduction, reused, swapped, pct, totalParts: total };
   }, [filtered]);
 
   const partsByName = useMemo(() => {
