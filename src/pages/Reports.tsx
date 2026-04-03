@@ -95,52 +95,49 @@ export default function Reports() {
   const timelineData = useMemo(() => {
     if (filtered.length === 0) return [];
 
-    const dates = filtered.map(d => parseISO(d.date)).sort((a, b) => a.getTime() - b.getTime());
-    const minDate = dates[0];
-    const maxDate = dates[dates.length - 1];
+    // Parse dates and sort
+    const discsWithDate = filtered.map(d => ({
+      ...d,
+      parsedDate: new Date(d.date + 'T12:00:00'), // noon to avoid timezone issues
+    }));
+    discsWithDate.sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
-    const getLabel = (date: Date) => {
+    const minDate = discsWithDate[0].parsedDate;
+    const maxDate = discsWithDate[discsWithDate.length - 1].parsedDate;
+
+    const getKey = (date: Date): string => {
+      if (viewMode === 'daily') return format(date, 'yyyy-MM-dd');
+      if (viewMode === 'weekly') {
+        const ws = startOfWeek(date, { weekStartsOn: 1 });
+        return format(ws, 'yyyy-MM-dd');
+      }
+      return format(date, 'yyyy-MM');
+    };
+
+    const getLabel = (date: Date): string => {
       if (viewMode === 'daily') return format(date, 'dd/MM', { locale: ptBR });
-      if (viewMode === 'weekly') return `Sem ${format(date, 'dd/MM', { locale: ptBR })}`;
+      if (viewMode === 'weekly') return `Sem ${format(startOfWeek(date, { weekStartsOn: 1 }), 'dd/MM', { locale: ptBR })}`;
       return format(date, 'MMM/yy', { locale: ptBR });
     };
 
-    const intervals: { start: Date; end: Date; label: string }[] = [];
+    // Build buckets from discs directly
+    const buckets: Record<string, { label: string; reused: number; swapped: number; discs: number }> = {};
 
-    if (viewMode === 'daily') {
-      eachDayOfInterval({ start: minDate, end: maxDate }).forEach(day => {
-        intervals.push({ start: startOfDay(day), end: endOfDay(day), label: getLabel(day) });
+    discsWithDate.forEach(d => {
+      const key = getKey(d.parsedDate);
+      if (!buckets[key]) {
+        buckets[key] = { label: getLabel(d.parsedDate), reused: 0, swapped: 0, discs: 0 };
+      }
+      buckets[key].discs++;
+      d.parts.forEach(p => {
+        buckets[key].reused += p.quantity || 0;
+        buckets[key].swapped += p.swappedQuantity || 0;
       });
-    } else if (viewMode === 'weekly') {
-      eachWeekOfInterval({ start: minDate, end: maxDate }, { weekStartsOn: 1 }).forEach(weekStart => {
-        const wStart = startOfWeek(weekStart, { weekStartsOn: 1 });
-        const wEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-        intervals.push({ start: wStart, end: wEnd, label: getLabel(weekStart) });
-      });
-    } else {
-      eachMonthOfInterval({ start: startOfMonth(minDate), end: endOfMonth(maxDate) }).forEach(monthStart => {
-        const mStart = startOfMonth(monthStart);
-        const mEnd = endOfMonth(monthStart);
-        intervals.push({ start: mStart, end: mEnd, label: getLabel(monthStart) });
-      });
-    }
+    });
 
-    return intervals.map(({ start, end, label }) => {
-      let reused = 0;
-      let swapped = 0;
-      let discs = 0;
-      filtered.forEach(d => {
-        const dDate = parseISO(d.date);
-        if (isWithinInterval(dDate, { start, end })) {
-          discs++;
-          d.parts.forEach(p => {
-            reused += p.quantity || 0;
-            swapped += p.swappedQuantity || 0;
-          });
-        }
-      });
-      return { label, reused, swapped, discs };
-    }).filter(d => d.discs > 0 || viewMode !== 'daily');
+    return Object.entries(buckets)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, v]) => v);
   }, [filtered, viewMode]);
 
   const exportPDF = async () => {
