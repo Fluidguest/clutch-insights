@@ -36,9 +36,9 @@ export default function NewDisc() {
       });
   }, []);
 
-  const buildParts = (type: EquipmentType, prodQty: number): DiscPart[] => {
+  const buildParts = (type: EquipmentType, prodQty: number): (DiscPart & { enabled: boolean })[] => {
     const filtered = allCatalog.filter(p => p.equipmentType === type);
-    return filtered.map(p => ({ name: p.name, status: 'reaproveitar' as const, quantity: prodQty, swappedQuantity: 0 }));
+    return filtered.map(p => ({ name: p.name, status: 'reaproveitar' as const, quantity: prodQty, swappedQuantity: 0, enabled: true }));
   };
 
   const handleNext = () => {
