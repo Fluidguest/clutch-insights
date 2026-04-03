@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Filter, TrendingUp, FileDown, Recycle, RefreshCw, Calendar, Disc as DiscIcon, CircleDot } from 'lucide-react';
-import { format, startOfWeek, parseISO } from 'date-fns';
+import { endOfDay, endOfMonth, endOfWeek, format, isWithinInterval, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -16,6 +16,29 @@ import { toast } from '@/hooks/use-toast';
 
 type ViewMode = 'daily' | 'weekly' | 'monthly';
 type EquipmentFilter = 'all' | EquipmentType;
+
+const reportWeekOptions = { weekStartsOn: 1 as const };
+
+const parseReportDate = (value: string) => new Date(`${value}T12:00:00`);
+
+const getReportInterval = (discs: Disc[], viewMode: ViewMode, dateFrom: string, dateTo: string) => {
+  if (discs.length === 0 && !dateFrom && !dateTo) return null;
+
+  const fallbackDate = discs.reduce<Date | null>((latest, disc) => {
+    const currentDate = parseReportDate(disc.date);
+    if (Number.isNaN(currentDate.getTime())) return latest;
+    if (!latest || currentDate > latest) return currentDate;
+    return latest;
+  }, null) ?? new Date();
+
+  const startReference = dateFrom ? parseReportDate(dateFrom) : dateTo ? parseReportDate(dateTo) : fallbackDate;
+  const endReference = dateTo ? parseReportDate(dateTo) : dateFrom ? parseReportDate(dateFrom) : fallbackDate;
+  const [rangeStart, rangeEnd] = startReference <= endReference ? [startReference, endReference] : [endReference, startReference];
+
+  if (viewMode === 'daily') return { start: startOfDay(rangeStart), end: endOfDay(rangeEnd) };
+  if (viewMode === 'weekly') return { start: startOfWeek(rangeStart, reportWeekOptions), end: endOfWeek(rangeEnd, reportWeekOptions) };
+  return { start: startOfMonth(rangeStart), end: endOfMonth(rangeEnd) };
+};
 
 export default function Reports() {
   const [allDiscs, setAllDiscs] = useState<Disc[]>([]);
@@ -33,20 +56,29 @@ export default function Reports() {
     getAllDiscs().then(d => { setAllDiscs(d); setLoading(false); }).catch(() => setLoading(false));
   }, []);
 
-  const filtered = useMemo(() => {
+  const baseFiltered = useMemo(() => {
     return allDiscs.filter(d => {
       if (equipmentFilter !== 'all' && d.equipmentType !== equipmentFilter) return false;
-      if (dateFrom && d.date < dateFrom) return false;
-      if (dateTo && d.date > dateTo) return false;
       if (sizeFilter && !d.size.toLowerCase().includes(sizeFilter.toLowerCase())) return false;
       if (refFilter && !d.referenceNumber.toLowerCase().includes(refFilter.toLowerCase())) return false;
       return true;
     });
-  }, [allDiscs, dateFrom, dateTo, sizeFilter, refFilter, equipmentFilter]);
+  }, [allDiscs, sizeFilter, refFilter, equipmentFilter]);
+
+  const reportInterval = useMemo(
+    () => getReportInterval(baseFiltered, viewMode, dateFrom, dateTo),
+    [baseFiltered, viewMode, dateFrom, dateTo],
+  );
+
+  const filtered = useMemo(() => {
+    if (!reportInterval) return baseFiltered;
+    return baseFiltered.filter(d => isWithinInterval(parseReportDate(d.date), reportInterval));
+  }, [baseFiltered, reportInterval]);
 
   const stats = useMemo(() => {
     const totalDiscs = filtered.length;
     const totalProduction = filtered.reduce((sum, d) => sum + (parseInt(d.productionNumber) || 0), 0);
+    const analyzedTotal = totalDiscs * totalProduction;
     let reused = 0;
     let swapped = 0;
     filtered.forEach(d => {
@@ -57,7 +89,7 @@ export default function Reports() {
     });
     const total = reused + swapped;
     const pct = total > 0 ? Math.round((reused / total) * 100) : 0;
-    return { totalDiscs, totalProduction, reused, swapped, pct, totalParts: total };
+    return { totalDiscs, totalProduction, analyzedTotal, reused, swapped, pct, totalParts: total };
   }, [filtered]);
 
   const partsByName = useMemo(() => {
@@ -95,32 +127,25 @@ export default function Reports() {
   const timelineData = useMemo(() => {
     if (filtered.length === 0) return [];
 
-    // Parse dates and sort
-    const discsWithDate = filtered.map(d => ({
-      ...d,
-      parsedDate: new Date(d.date + 'T12:00:00'), // noon to avoid timezone issues
-    }));
-    discsWithDate.sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+    const discsWithDate = filtered
+      .map(d => ({
+        ...d,
+        parsedDate: parseReportDate(d.date),
+      }))
+      .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
-    const minDate = discsWithDate[0].parsedDate;
-    const maxDate = discsWithDate[discsWithDate.length - 1].parsedDate;
+    const groupingMode: 'daily' | 'weekly' = viewMode === 'monthly' ? 'weekly' : 'daily';
 
     const getKey = (date: Date): string => {
-      if (viewMode === 'daily') return format(date, 'yyyy-MM-dd');
-      if (viewMode === 'weekly') {
-        const ws = startOfWeek(date, { weekStartsOn: 1 });
-        return format(ws, 'yyyy-MM-dd');
-      }
-      return format(date, 'yyyy-MM');
+      if (groupingMode === 'daily') return format(date, 'yyyy-MM-dd');
+      return format(startOfWeek(date, reportWeekOptions), 'yyyy-MM-dd');
     };
 
     const getLabel = (date: Date): string => {
-      if (viewMode === 'daily') return format(date, 'dd/MM', { locale: ptBR });
-      if (viewMode === 'weekly') return `Sem ${format(startOfWeek(date, { weekStartsOn: 1 }), 'dd/MM', { locale: ptBR })}`;
-      return format(date, 'MMM/yy', { locale: ptBR });
+      if (groupingMode === 'daily') return format(date, 'dd/MM', { locale: ptBR });
+      return `Sem ${format(startOfWeek(date, reportWeekOptions), 'dd/MM', { locale: ptBR })}`;
     };
 
-    // Build buckets from discs directly
     const buckets: Record<string, { label: string; reused: number; swapped: number; discs: number }> = {};
 
     discsWithDate.forEach(d => {
@@ -173,9 +198,9 @@ export default function Reports() {
     const viewLabel = viewMode === 'daily' ? 'Diária' : viewMode === 'weekly' ? 'Semanal' : 'Mensal';
     doc.text(`Visão: ${viewLabel}`, 14, y);
     y += 5;
-    if (dateFrom || dateTo) {
-      const fromDate = dateFrom ? format(parseISO(dateFrom), 'dd/MM/yyyy', { locale: ptBR }) : '...';
-      const toDate = dateTo ? format(parseISO(dateTo), 'dd/MM/yyyy', { locale: ptBR }) : '...';
+    if (reportInterval) {
+      const fromDate = format(reportInterval.start, 'dd/MM/yyyy', { locale: ptBR });
+      const toDate = format(reportInterval.end, 'dd/MM/yyyy', { locale: ptBR });
       doc.text(`Período: ${fromDate} a ${toDate}`, 14, y);
       y += 5;
     }
@@ -185,7 +210,7 @@ export default function Reports() {
     addSeparator();
 
     addLine('RESUMO GERAL', 13, true);
-    addLine(`Equipamentos analisados: ${stats.totalDiscs} × ${stats.totalProduction} (produção)`);
+    addLine(`Equipamentos analisados × produção: ${stats.analyzedTotal}`);
     addLine(`Total de peças: ${stats.totalParts}`);
     addLine(`Peças reaproveitadas: ${stats.reused}`);
     addLine(`Peças substituídas: ${stats.swapped}`);
@@ -381,7 +406,7 @@ export default function Reports() {
       )}
 
       <div className="grid grid-cols-2 gap-2 mb-6">
-        <StatCard label={equipmentFilter === 'plator' ? 'Plators analisados' : equipmentFilter === 'disco' ? 'Discos analisados' : 'Equipamentos analisados'} value={`${stats.totalDiscs} × ${stats.totalProduction}`} />
+        <StatCard label={equipmentFilter === 'plator' ? 'Plators analisados × produção' : equipmentFilter === 'disco' ? 'Discos analisados × produção' : 'Equipamentos analisados × produção'} value={stats.analyzedTotal} />
         <StatCard label="Reaproveitamento" value={`${stats.pct}%`} accent />
         <StatCard label="Peças reaproveitadas" value={stats.reused} />
         <StatCard label="Peças substituídas" value={stats.swapped} />
