@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { ArrowLeft, Minus, Plus } from 'lucide-react';
 import { format } from 'date-fns';
@@ -19,7 +20,7 @@ export default function NewDisc() {
   const [prodNumber, setProdNumber] = useState('');
   const [observation, setObservation] = useState('');
   const [saving, setSaving] = useState(false);
-  const [parts, setParts] = useState<DiscPart[]>([]);
+  const [parts, setParts] = useState<(DiscPart & { enabled: boolean })[]>([]);
   const [allCatalog, setAllCatalog] = useState<PartsCatalog[]>([]);
   const [loadingParts, setLoadingParts] = useState(true);
 
@@ -35,9 +36,9 @@ export default function NewDisc() {
       });
   }, []);
 
-  const buildParts = (type: EquipmentType, prodQty: number): DiscPart[] => {
+  const buildParts = (type: EquipmentType, prodQty: number): (DiscPart & { enabled: boolean })[] => {
     const filtered = allCatalog.filter(p => p.equipmentType === type);
-    return filtered.map(p => ({ name: p.name, status: 'reaproveitar' as const, quantity: prodQty, swappedQuantity: 0 }));
+    return filtered.map(p => ({ name: p.name, status: 'reaproveitar' as const, quantity: prodQty, swappedQuantity: 0, enabled: true }));
   };
 
   const handleNext = () => {
@@ -76,6 +77,7 @@ export default function NewDisc() {
   };
 
   const handleSave = async () => {
+    const enabledParts = parts.filter(p => p.enabled).map(({ enabled, ...rest }) => rest);
     setSaving(true);
     try {
       await saveDisc({
@@ -85,7 +87,7 @@ export default function NewDisc() {
         productionNumber: prodNumber,
         observation: observation || undefined,
         equipmentType,
-        parts,
+        parts: enabledParts,
       });
       toast.success(`${equipmentType === 'disco' ? 'Disco' : 'Plator'} cadastrado com sucesso!`);
       navigate('/');
@@ -168,63 +170,77 @@ export default function NewDisc() {
                 <div
                   key={idx}
                   className={`w-full rounded-lg border-2 transition-all overflow-hidden ${
-                    hasSwaps ? 'border-destructive/40 bg-destructive/5' : 'border-success/40 bg-success/5'
+                    !part.enabled
+                      ? 'border-border bg-muted/50 opacity-60'
+                      : hasSwaps ? 'border-destructive/40 bg-destructive/5' : 'border-success/40 bg-success/5'
                   }`}
                 >
                   <div className="p-4">
-                    <span className="font-medium text-sm block mb-3">{part.name}</span>
-
-                    {/* Reaproveitadas */}
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-success font-semibold">Reaproveitadas</span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => adjustField(idx, 'quantity', -1)}
-                          className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <input
-                          type="number"
-                          value={part.quantity}
-                          onChange={e => updateField(idx, 'quantity', e.target.value)}
-                          className="w-14 h-8 text-center font-bold text-sm bg-transparent border border-border rounded-md focus:ring-0 tabular-nums"
-                          inputMode="numeric"
-                        />
-                        <button
-                          onClick={() => adjustField(idx, 'quantity', 1)}
-                          className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Checkbox
+                        checked={part.enabled}
+                        onCheckedChange={(checked) =>
+                          setParts(prev => prev.map((p, i) => i === idx ? { ...p, enabled: !!checked } : p))
+                        }
+                      />
+                      <span className={`font-medium text-sm ${!part.enabled ? 'line-through text-muted-foreground' : ''}`}>{part.name}</span>
                     </div>
 
-                    {/* Trocadas */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-destructive font-semibold">Trocadas</span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => adjustField(idx, 'swappedQuantity', -1)}
-                          className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <input
-                          type="number"
-                          value={part.swappedQuantity}
-                          onChange={e => updateField(idx, 'swappedQuantity', e.target.value)}
-                          className="w-14 h-8 text-center font-bold text-sm bg-transparent border border-border rounded-md focus:ring-0 tabular-nums"
-                          inputMode="numeric"
-                        />
-                        <button
-                          onClick={() => adjustField(idx, 'swappedQuantity', 1)}
-                          className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
+                    {part.enabled && (
+                      <>
+                        {/* Reaproveitadas */}
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-success font-semibold">Reaproveitadas</span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => adjustField(idx, 'quantity', -1)}
+                              className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <input
+                              type="number"
+                              value={part.quantity}
+                              onChange={e => updateField(idx, 'quantity', e.target.value)}
+                              className="w-14 h-8 text-center font-bold text-sm bg-transparent border border-border rounded-md focus:ring-0 tabular-nums"
+                              inputMode="numeric"
+                            />
+                            <button
+                              onClick={() => adjustField(idx, 'quantity', 1)}
+                              className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Trocadas */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-destructive font-semibold">Trocadas</span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => adjustField(idx, 'swappedQuantity', -1)}
+                              className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <input
+                              type="number"
+                              value={part.swappedQuantity}
+                              onChange={e => updateField(idx, 'swappedQuantity', e.target.value)}
+                              className="w-14 h-8 text-center font-bold text-sm bg-transparent border border-border rounded-md focus:ring-0 tabular-nums"
+                              inputMode="numeric"
+                            />
+                            <button
+                              onClick={() => adjustField(idx, 'swappedQuantity', 1)}
+                              className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center active:scale-95"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               );
