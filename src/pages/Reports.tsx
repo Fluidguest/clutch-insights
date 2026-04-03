@@ -185,7 +185,7 @@ export default function Reports() {
     addSeparator();
 
     addLine('RESUMO GERAL', 13, true);
-    addLine(`Discos analisados: ${stats.totalDiscs}`);
+    addLine(`Equipamentos analisados: ${stats.totalDiscs} × ${stats.totalProduction} (produção)`);
     addLine(`Total de peças: ${stats.totalParts}`);
     addLine(`Peças reaproveitadas: ${stats.reused}`);
     addLine(`Peças substituídas: ${stats.swapped}`);
