@@ -77,6 +77,7 @@ export default function NewDisc() {
   };
 
   const handleSave = async () => {
+    const enabledParts = parts.filter(p => p.enabled).map(({ enabled, ...rest }) => rest);
     setSaving(true);
     try {
       await saveDisc({
@@ -86,7 +87,7 @@ export default function NewDisc() {
         productionNumber: prodNumber,
         observation: observation || undefined,
         equipmentType,
-        parts,
+        parts: enabledParts,
       });
       toast.success(`${equipmentType === 'disco' ? 'Disco' : 'Plator'} cadastrado com sucesso!`);
       navigate('/');
