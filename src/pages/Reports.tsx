@@ -384,7 +384,7 @@ export default function Reports() {
       )}
 
       <div className="grid grid-cols-2 gap-2 mb-6">
-        <StatCard label="Discos analisados" value={stats.totalDiscs} />
+        <StatCard label={equipmentFilter === 'plator' ? 'Plators analisados' : equipmentFilter === 'disco' ? 'Discos analisados' : 'Equipamentos analisados'} value={`${stats.totalDiscs} × ${stats.totalProduction}`} />
         <StatCard label="Reaproveitamento" value={`${stats.pct}%`} accent />
         <StatCard label="Peças reaproveitadas" value={stats.reused} />
         <StatCard label="Peças substituídas" value={stats.swapped} />
