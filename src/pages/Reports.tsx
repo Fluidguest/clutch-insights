@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Filter, TrendingUp, FileDown, Recycle, RefreshCw, Calendar, Disc as DiscIcon, CircleDot } from 'lucide-react';
-import { endOfDay, format, isWithinInterval, startOfDay } from 'date-fns';
+import { endOfDay, format, isWithinInterval, startOfDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -16,7 +16,8 @@ import { toast } from '@/hooks/use-toast';
 
 type EquipmentFilter = 'all' | EquipmentType;
 
-const parseReportDate = (value: string) => new Date(`${value}T12:00:00`);
+// Use parseISO for consistent date parsing from YYYY-MM-DD strings
+const parseReportDate = (value: string) => parseISO(value);
 
 const getReportInterval = (dateFrom: string, dateTo: string) => {
   if (!dateFrom && !dateTo) return null;
@@ -64,7 +65,10 @@ export default function Reports() {
 
   const filtered = useMemo(() => {
     if (!reportInterval) return baseFiltered;
-    return baseFiltered.filter(d => isWithinInterval(parseReportDate(d.date), reportInterval));
+    return baseFiltered.filter(d => {
+      const dDate = parseReportDate(d.date);
+      return isWithinInterval(dDate, reportInterval);
+    });
   }, [baseFiltered, reportInterval]);
 
   const stats = useMemo(() => {
@@ -98,7 +102,7 @@ export default function Reports() {
     return { swapMap, reuseMap };
   }, [filtered]);
 
-  // Ranking by reference
+  // Ranking by reference - Limited to top 5
   const rankingByRef = useMemo(() => {
     const map: Record<string, { reused: number; swapped: number; discs: Disc[] }> = {};
     filtered.forEach(d => {
@@ -111,10 +115,11 @@ export default function Reports() {
     });
     return Object.entries(map)
       .map(([ref, v]) => ({ ref, ...v, total: v.reused + v.swapped }))
-      .sort((a, b) => b.total - a.total);
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
   }, [filtered]);
 
-  // Ranking by part
+  // Ranking by part - Limited to top 5
   const rankingByPart = useMemo(() => {
     const map: Record<string, { reused: number; swapped: number; refs: Record<string, { reused: number; swapped: number }> }> = {};
     filtered.forEach(d => {
@@ -129,7 +134,8 @@ export default function Reports() {
     });
     return Object.entries(map)
       .map(([name, v]) => ({ name, ...v, total: v.reused + v.swapped }))
-      .sort((a, b) => b.total - a.total);
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
   }, [filtered]);
 
   const [expandedRefs, setExpandedRefs] = useState<Record<string, boolean>>({});
@@ -274,13 +280,13 @@ export default function Reports() {
       addSeparator();
     }
 
-    addLine('DETALHAMENTO POR DISCO', 13, true);
+    addLine('DETALHAMENTO POR EQUIPAMENTO', 13, true);
     y += 2;
     filtered.forEach((disc, idx) => {
       if (y > pageH - 40) { doc.addPage(); y = 20; }
       const typeLabel = disc.equipmentType === 'plator' ? 'Plator' : 'Disco';
       addLine(`${typeLabel} ${idx + 1}`, 11, true);
-      addLine(`  Data: ${format(new Date(disc.date), "dd/MM/yyyy", { locale: ptBR })}`);
+      addLine(`  Data: ${format(parseReportDate(disc.date), "dd/MM/yyyy", { locale: ptBR })}`);
       addLine(`  Tamanho: ${disc.size}`);
       addLine(`  N. Referência: ${disc.referenceNumber}`);
       addLine(`  Quantidade de produção: ${disc.productionNumber}`);
@@ -293,7 +299,7 @@ export default function Reports() {
       y += 4;
     });
 
-    const fileName = `relatorio-${equipmentFilter}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+    const fileName = `relatorio-clutch-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
 
     if (Capacitor.isNativePlatform()) {
       try {
@@ -303,7 +309,7 @@ export default function Reports() {
           data: pdfBase64,
           directory: Directory.Cache,
         });
-        await Share.share({ title: 'Relatório', url: result.uri });
+        await Share.share({ title: 'Relatório Clutch', url: result.uri });
         toast({ title: 'PDF gerado com sucesso!' });
       } catch (err) {
         console.error('Erro ao exportar PDF:', err);
@@ -312,41 +318,6 @@ export default function Reports() {
     } else {
       doc.save(fileName);
       toast({ title: 'PDF baixado com sucesso!' });
-    }
-  };
-
-  const exportCSV = async () => {
-    const rows = [['Tipo', 'Data', 'Tamanho', 'Referência', 'Qtd Produção', 'Peça', 'Reaproveitadas', 'Trocadas', 'Observação']];
-    filtered.forEach(d => {
-      const typeLabel = d.equipmentType === 'plator' ? 'Plator' : 'Disco';
-      d.parts.forEach(p => {
-        rows.push([typeLabel, d.date, d.size, d.referenceNumber, d.productionNumber, p.name, String(p.quantity || 0), String(p.swappedQuantity || 0), d.observation || '']);
-      });
-    });
-    const csv = rows.map(r => r.join(';')).join('\n');
-    const fileName = `relatorio-${equipmentFilter}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const csvBase64 = btoa(unescape(encodeURIComponent(csv)));
-        const result = await Filesystem.writeFile({
-          path: fileName,
-          data: csvBase64,
-          directory: Directory.Cache,
-        });
-        await Share.share({ title: 'Relatório CSV', url: result.uri });
-        toast({ title: 'CSV gerado com sucesso!' });
-      } catch (err) {
-        console.error('Erro ao exportar CSV:', err);
-        toast({ title: 'Erro ao exportar CSV', variant: 'destructive' });
-      }
-    } else {
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = fileName;
-      link.click();
-      toast({ title: 'CSV baixado com sucesso!' });
     }
   };
 
@@ -363,38 +334,35 @@ export default function Reports() {
         </button>
       </div>
 
-      {/* Equipment Type Tabs */}
-      <div className="flex gap-1 mb-3 bg-muted rounded-lg p-1">
-        {([['all', 'Geral', null], ['disco', 'Disco', DiscIcon], ['plator', 'Plator', CircleDot]] as const).map(([mode, label, Icon]) => (
+      <div className="flex gap-1 mb-4 bg-muted rounded-lg p-1">
+        {(['all', 'disco', 'plator'] as const).map((type) => (
           <button
-            key={mode}
-            onClick={() => setEquipmentFilter(mode as EquipmentFilter)}
+            key={type}
+            onClick={() => setEquipmentFilter(type)}
             className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
-              equipmentFilter === mode
+              equipmentFilter === type
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {Icon && <Icon className="w-3.5 h-3.5" />}
-            {label}
+            {type === 'all' ? <TrendingUp className="w-3.5 h-3.5" /> : type === 'disco' ? <DiscIcon className="w-3.5 h-3.5" /> : <CircleDot className="w-3.5 h-3.5" />}
+            {type === 'all' ? 'Geral' : type === 'disco' ? 'Discos' : 'Plators'}
           </button>
         ))}
       </div>
 
-      {/* Date Range Filter - always visible */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div>
-          <Label className="text-xs">Data inicial</Label>
-          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="mt-1 h-10 text-sm" />
-        </div>
-        <div>
-          <Label className="text-xs">Data final</Label>
-          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="mt-1 h-10 text-sm" />
-        </div>
-      </div>
-
       {showFilters && (
         <div className="bg-card rounded-lg p-4 border border-border mb-4 space-y-3 animate-fade-in">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Data inicial</Label>
+              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="mt-1 h-10 text-sm" />
+            </div>
+            <div>
+              <Label className="text-xs">Data final</Label>
+              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="mt-1 h-10 text-sm" />
+            </div>
+          </div>
           <div>
             <Label className="text-xs">Tamanho</Label>
             <Input placeholder="Ex: 200mm" value={sizeFilter} onChange={e => setSizeFilter(e.target.value)} className="mt-1 h-10 text-sm" />
@@ -407,10 +375,10 @@ export default function Reports() {
       )}
 
       <div className="grid grid-cols-2 gap-2 mb-6">
-        <StatCard label="Quantidade de discos" value={stats.totalProduction} />
+        <StatCard label="Equipamentos" value={stats.totalDiscs} />
+        <StatCard label="Total Produção" value={stats.totalProduction} />
         <StatCard label="Reaproveitamento" value={`${stats.pct}%`} accent />
-        <StatCard label="Peças reaproveitadas" value={stats.reused} />
-        <StatCard label="Peças substituídas" value={stats.swapped} />
+        <StatCard label="Peças Analisadas" value={stats.totalParts} />
       </div>
 
       {filtered.length > 0 && (
@@ -418,24 +386,20 @@ export default function Reports() {
           <Button onClick={exportPDF} className="flex-1 h-12 text-sm font-semibold">
             <FileDown className="w-4 h-4 mr-1.5" /> Exportar PDF
           </Button>
-          <Button variant="outline" onClick={exportCSV} className="flex-1 h-12 text-sm font-semibold">
-            <FileDown className="w-4 h-4 mr-1.5" /> Exportar CSV
-          </Button>
         </div>
       )}
 
       {stats.totalParts > 0 && (
         <>
-          {/* Ranking por Referência */}
           {rankingByRef.length > 0 && (
             <>
               <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-primary" /> Ranking por Referência
+                <TrendingUp className="w-4 h-4 text-primary" /> Ranking por Referência (Top 5)
               </h2>
               <div className="bg-card rounded-lg border border-border mb-4 divide-y divide-border">
                 {rankingByRef.map((item, idx) => {
-                  const isOpen = expandedRefs[item.ref];
                   const reusePct = item.total > 0 ? Math.round((item.reused / item.total) * 100) : 0;
+                  const isOpen = expandedRefs[item.ref];
                   return (
                     <div key={item.ref}>
                       <button
@@ -445,8 +409,8 @@ export default function Reports() {
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-muted-foreground w-5">#{idx + 1}</span>
                           <div>
-                            <p className="text-sm font-medium">Ref: {item.ref}</p>
-                            <p className="text-xs text-muted-foreground">{item.discs.length} equip. · {item.total} peças</p>
+                            <p className="text-sm font-medium">{item.ref}</p>
+                            <p className="text-xs text-muted-foreground">{item.discs.length} registros · {item.total} un.</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 text-xs shrink-0">
@@ -463,15 +427,10 @@ export default function Reports() {
                             <span>Reaproveitadas: <strong className="text-success">{item.reused}</strong></span>
                             <span>Trocadas: <strong className="text-destructive">{item.swapped}</strong></span>
                           </div>
-                          {item.discs.map(disc => (
-                            <div key={disc.id} className="px-2 py-1.5 rounded-md bg-muted/30 text-xs space-y-0.5">
-                              <p className="font-medium">{disc.equipmentType === 'plator' ? 'Plator' : 'Disco'} - {disc.size} · {format(parseReportDate(disc.date), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                              {disc.parts.map((p, i) => (
-                                <div key={i} className="flex justify-between pl-2">
-                                  <span>{p.name}</span>
-                                  <span><span className="text-success">R:{p.quantity || 0}</span> <span className="text-destructive">T:{p.swappedQuantity || 0}</span></span>
-                                </div>
-                              ))}
+                          {item.discs.map((d, i) => (
+                            <div key={i} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-muted/30 text-xs">
+                              <span>{format(parseReportDate(d.date), 'dd/MM/yy')} - {d.size}</span>
+                              <span><span className="text-success">R:{d.parts.reduce((s, p) => s + (p.quantity || 0), 0)}</span> <span className="text-destructive">T:{d.parts.reduce((s, p) => s + (p.swappedQuantity || 0), 0)}</span></span>
                             </div>
                           ))}
                         </div>
@@ -483,16 +442,15 @@ export default function Reports() {
             </>
           )}
 
-          {/* Ranking por Peça */}
           {rankingByPart.length > 0 && (
             <>
               <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-primary" /> Ranking por Peça
+                <Recycle className="w-4 h-4 text-success" /> Ranking por Peça (Top 5)
               </h2>
               <div className="bg-card rounded-lg border border-border mb-4 divide-y divide-border">
                 {rankingByPart.map((item, idx) => {
-                  const isOpen = expandedParts[item.name];
                   const reusePct = item.total > 0 ? Math.round((item.reused / item.total) * 100) : 0;
+                  const isOpen = expandedParts[item.name];
                   const refEntries = Object.entries(item.refs).sort((a, b) => (b[1].reused + b[1].swapped) - (a[1].reused + a[1].swapped));
                   return (
                     <div key={item.name}>
@@ -568,7 +526,6 @@ export default function Reports() {
             </>
           )}
 
-          {/* Detalhamento por disco - expandível */}
           <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
             <DiscIcon className="w-4 h-4" /> Detalhamento por Equipamento
           </h2>
