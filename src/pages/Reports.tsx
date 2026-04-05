@@ -111,6 +111,43 @@ export default function Reports() {
     return { swapMap, reuseMap };
   }, [filtered]);
 
+  // Ranking by reference
+  const rankingByRef = useMemo(() => {
+    const map: Record<string, { reused: number; swapped: number; discs: Disc[] }> = {};
+    filtered.forEach(d => {
+      if (!map[d.referenceNumber]) map[d.referenceNumber] = { reused: 0, swapped: 0, discs: [] };
+      map[d.referenceNumber].discs.push(d);
+      d.parts.forEach(p => {
+        map[d.referenceNumber].reused += p.quantity || 0;
+        map[d.referenceNumber].swapped += p.swappedQuantity || 0;
+      });
+    });
+    return Object.entries(map)
+      .map(([ref, v]) => ({ ref, ...v, total: v.reused + v.swapped }))
+      .sort((a, b) => b.total - a.total);
+  }, [filtered]);
+
+  // Ranking by part
+  const rankingByPart = useMemo(() => {
+    const map: Record<string, { reused: number; swapped: number; refs: Record<string, { reused: number; swapped: number }> }> = {};
+    filtered.forEach(d => {
+      d.parts.forEach(p => {
+        if (!map[p.name]) map[p.name] = { reused: 0, swapped: 0, refs: {} };
+        map[p.name].reused += p.quantity || 0;
+        map[p.name].swapped += p.swappedQuantity || 0;
+        if (!map[p.name].refs[d.referenceNumber]) map[p.name].refs[d.referenceNumber] = { reused: 0, swapped: 0 };
+        map[p.name].refs[d.referenceNumber].reused += p.quantity || 0;
+        map[p.name].refs[d.referenceNumber].swapped += p.swappedQuantity || 0;
+      });
+    });
+    return Object.entries(map)
+      .map(([name, v]) => ({ name, ...v, total: v.reused + v.swapped }))
+      .sort((a, b) => b.total - a.total);
+  }, [filtered]);
+
+  const [expandedRefs, setExpandedRefs] = useState<Record<string, boolean>>({});
+  const [expandedParts, setExpandedParts] = useState<Record<string, boolean>>({});
+
   const pieData = [
     { name: 'Reaproveitadas', value: stats.reused },
     { name: 'Substituídas', value: stats.swapped },
