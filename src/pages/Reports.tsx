@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllDiscs, type Disc, type EquipmentType } from '@/lib/db';
+import logoImg from '@/assets/logo.png';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -197,50 +198,107 @@ export default function Reports() {
     const pageH = doc.internal.pageSize.getHeight();
     let y = 20;
 
-    const addLine = (text: string, size = 10, bold = false) => {
+    const addLine = (text: string, size = 10, bold = false, color = [0, 0, 0]) => {
       if (y > pageH - 20) { doc.addPage(); y = 20; }
       doc.setFontSize(size);
       doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setTextColor(color[0], color[1], color[2]);
       doc.text(text, 14, y);
       y += size * 0.5 + 3;
+      doc.setTextColor(0, 0, 0); // Reset color
     };
 
     const addSeparator = () => {
       if (y > pageH - 20) { doc.addPage(); y = 20; }
-      doc.setDrawColor(200);
+      doc.setDrawColor(220);
       doc.line(14, y, pageW - 14, y);
       y += 5;
     };
 
-    doc.setFontSize(16);
+    // Adicionar Logo
+    try {
+      doc.addImage(logoImg, 'PNG', 14, 10, 25, 25);
+      y = 40;
+    } catch (e) {
+      console.error('Erro ao adicionar logo no PDF', e);
+      y = 20;
+    }
+
+    // Cabeçalho
+    doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     const eqLabel = equipmentFilter === 'all' ? 'Geral' : equipmentFilter === 'disco' ? 'Discos' : 'Plators';
-    doc.text(`Relatório - ${eqLabel}`, 14, y);
+    doc.text(`Relatório de Produção - ${eqLabel}`, 14, y);
     y += 10;
+    
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
     doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 14, y);
     y += 5;
+    
     if (reportInterval) {
       const fromDate = format(reportInterval.start, 'dd/MM/yyyy', { locale: ptBR });
       const toDate = format(reportInterval.end, 'dd/MM/yyyy', { locale: ptBR });
-      doc.text(`Período: ${fromDate} a ${toDate}`, 14, y);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Período Filtrado: ${fromDate} a ${toDate}`, 14, y);
+      y += 7;
+    }
+    
+    if (sizeFilter || refFilter) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      let filterText = 'Filtros ativos: ';
+      if (sizeFilter) filterText += `Tamanho: ${sizeFilter} `;
+      if (refFilter) filterText += `Referência: ${refFilter}`;
+      doc.text(filterText, 14, y);
       y += 5;
     }
-    if (sizeFilter) { doc.text(`Filtro tamanho: ${sizeFilter}`, 14, y); y += 5; }
-    if (refFilter) { doc.text(`Filtro referência: ${refFilter}`, 14, y); y += 5; }
-    y += 3;
+    
     addSeparator();
 
-    addLine('RESUMO GERAL', 13, true);
-    addLine(`Quantidade de discos: ${stats.totalProduction}`);
-    addLine(`Total de peças: ${stats.totalParts}`);
-    addLine(`Peças reaproveitadas: ${stats.reused}`);
-    addLine(`Peças substituídas: ${stats.swapped}`);
-    addLine(`Percentual de reaproveitamento: ${stats.pct}%`);
-    y += 3;
+    // Resumo Geral
+    addLine('RESUMO GERAL', 13, true, [37, 99, 235]); // Azul primary
+    y += 2;
+    
+    // Grid de resumo (simulado com texto)
+    doc.setFontSize(10);
+    doc.text(`Equipamentos Analisados: ${stats.totalDiscs}`, 14, y);
+    doc.text(`Total Produção: ${stats.totalProduction}`, 100, y);
+    y += 6;
+    doc.text(`Peças Reaproveitadas: ${stats.reused}`, 14, y);
+    doc.text(`Peças Substituídas: ${stats.swapped}`, 100, y);
+    y += 6;
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Índice de Reaproveitamento: ${stats.pct}%`, 14, y);
+    y += 8;
     addSeparator();
 
+    // Rankings Estruturados
+    if (rankingByRef.length > 0) {
+      addLine('RANKING POR REFERÊNCIA (TOP 5)', 12, true, [37, 99, 235]);
+      y += 2;
+      rankingByRef.forEach((item, idx) => {
+        const reusePct = item.total > 0 ? Math.round((item.reused / item.total) * 100) : 0;
+        addLine(`${idx + 1}. Ref: ${item.ref} - ${item.total} un. (${reusePct}% reaproveitamento)`, 10);
+      });
+      y += 5;
+    }
+
+    if (rankingByPart.length > 0) {
+      addLine('RANKING POR PEÇA (TOP 5)', 12, true, [37, 99, 235]);
+      y += 2;
+      rankingByPart.forEach((item, idx) => {
+        const reusePct = item.total > 0 ? Math.round((item.reused / item.total) * 100) : 0;
+        addLine(`${idx + 1}. ${item.name} - ${item.total} un. (${reusePct}% reaproveitamento)`, 10);
+      });
+      y += 5;
+    }
+    
+    addSeparator();
+
+    // Gráficos
     if (chartsRef.current) {
       try {
         const canvas = await html2canvas(chartsRef.current, {
@@ -254,7 +312,7 @@ export default function Reports() {
         const imgH = (canvas.height / canvas.width) * imgW;
 
         if (y + imgH > pageH - 20) { doc.addPage(); y = 20; }
-        addLine('GRÁFICOS', 13, true);
+        addLine('VISUALIZAÇÃO GRÁFICA', 12, true, [37, 99, 235]);
         y += 2;
         doc.addImage(imgData, 'PNG', 14, y, imgW, imgH);
         y += imgH + 10;
@@ -264,37 +322,26 @@ export default function Reports() {
       }
     }
 
-    const swapEntries = Object.entries(partsByName.swapMap).sort((a, b) => b[1] - a[1]);
-    if (swapEntries.length > 0) {
-      addLine('PEÇAS SUBSTITUÍDAS (por tipo)', 13, true);
-      swapEntries.forEach(([name, qty]) => addLine(`  - ${name}: ${qty} unidade(s)`));
-      y += 3;
-      addSeparator();
-    }
-
-    const reuseEntries = Object.entries(partsByName.reuseMap).sort((a, b) => b[1] - a[1]);
-    if (reuseEntries.length > 0) {
-      addLine('PEÇAS REAPROVEITADAS (por tipo)', 13, true);
-      reuseEntries.forEach(([name, qty]) => addLine(`  - ${name}: ${qty} unidade(s)`));
-      y += 3;
-      addSeparator();
-    }
-
-    addLine('DETALHAMENTO POR EQUIPAMENTO', 13, true);
+    // Detalhamento
+    addLine('DETALHAMENTO POR EQUIPAMENTO', 12, true, [37, 99, 235]);
     y += 2;
     filtered.forEach((disc, idx) => {
       if (y > pageH - 40) { doc.addPage(); y = 20; }
       const typeLabel = disc.equipmentType === 'plator' ? 'Plator' : 'Disco';
-      addLine(`${typeLabel} ${idx + 1}`, 11, true);
-      addLine(`  Data: ${format(parseReportDate(disc.date), "dd/MM/yyyy", { locale: ptBR })}`);
-      addLine(`  Tamanho: ${disc.size}`);
-      addLine(`  N. Referência: ${disc.referenceNumber}`);
-      addLine(`  Quantidade de produção: ${disc.productionNumber}`);
-      if (disc.observation) {
-        addLine(`  Observação: ${disc.observation}`);
-      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(`${typeLabel} ${idx + 1} - ${disc.size} (Ref: ${disc.referenceNumber})`, 14, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`Data: ${format(parseReportDate(disc.date), "dd/MM/yyyy", { locale: ptBR })} | Produção: ${disc.productionNumber}`, 14, y);
+      y += 5;
+      
       disc.parts.forEach(p => {
-        addLine(`    - ${p.name}: Reaprov. ${p.quantity || 0} | Troca ${p.swappedQuantity || 0}`);
+        if (y > pageH - 10) { doc.addPage(); y = 20; }
+        doc.setFontSize(8);
+        doc.text(`• ${p.name}: Reaprov: ${p.quantity || 0} | Troca: ${p.swappedQuantity || 0}`, 20, y);
+        y += 4;
       });
       y += 4;
     });
