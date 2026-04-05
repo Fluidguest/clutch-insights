@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Filter, TrendingUp, FileDown, Recycle, RefreshCw, Calendar, Disc as DiscIcon, CircleDot } from 'lucide-react';
-import { endOfDay, endOfMonth, endOfWeek, format, isWithinInterval, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
+import { endOfDay, format, isWithinInterval, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -14,30 +14,18 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { toast } from '@/hooks/use-toast';
 
-type ViewMode = 'daily' | 'weekly' | 'monthly';
 type EquipmentFilter = 'all' | EquipmentType;
-
-const reportWeekOptions = { weekStartsOn: 1 as const };
 
 const parseReportDate = (value: string) => new Date(`${value}T12:00:00`);
 
-const getReportInterval = (discs: Disc[], viewMode: ViewMode, dateFrom: string, dateTo: string) => {
-  if (discs.length === 0 && !dateFrom && !dateTo) return null;
-
-  const fallbackDate = discs.reduce<Date | null>((latest, disc) => {
-    const currentDate = parseReportDate(disc.date);
-    if (Number.isNaN(currentDate.getTime())) return latest;
-    if (!latest || currentDate > latest) return currentDate;
-    return latest;
-  }, null) ?? new Date();
-
-  const startReference = dateFrom ? parseReportDate(dateFrom) : dateTo ? parseReportDate(dateTo) : fallbackDate;
-  const endReference = dateTo ? parseReportDate(dateTo) : dateFrom ? parseReportDate(dateFrom) : fallbackDate;
-  const [rangeStart, rangeEnd] = startReference <= endReference ? [startReference, endReference] : [endReference, startReference];
-
-  if (viewMode === 'daily') return { start: startOfDay(rangeStart), end: endOfDay(rangeEnd) };
-  if (viewMode === 'weekly') return { start: startOfWeek(rangeStart, reportWeekOptions), end: endOfWeek(rangeEnd, reportWeekOptions) };
-  return { start: startOfMonth(rangeStart), end: endOfMonth(rangeEnd) };
+const getReportInterval = (dateFrom: string, dateTo: string) => {
+  if (!dateFrom && !dateTo) return null;
+  const start = dateFrom ? startOfDay(parseReportDate(dateFrom)) : null;
+  const end = dateTo ? endOfDay(parseReportDate(dateTo)) : null;
+  if (start && end) return start <= end ? { start, end } : { start: end, end: start };
+  if (start) return { start, end: endOfDay(start) };
+  if (end) return { start: startOfDay(end), end };
+  return null;
 };
 
 export default function Reports() {
@@ -48,7 +36,6 @@ export default function Reports() {
   const [sizeFilter, setSizeFilter] = useState('');
   const [refFilter, setRefFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
   const [expandedDiscs, setExpandedDiscs] = useState<Record<string, boolean>>({});
   const chartsRef = useRef<HTMLDivElement>(null);
@@ -71,8 +58,8 @@ export default function Reports() {
   }, [allDiscs, sizeFilter, refFilter, equipmentFilter]);
 
   const reportInterval = useMemo(
-    () => getReportInterval(baseFiltered, viewMode, dateFrom, dateTo),
-    [baseFiltered, viewMode, dateFrom, dateTo],
+    () => getReportInterval(dateFrom, dateTo),
+    [dateFrom, dateTo],
   );
 
   const filtered = useMemo(() => {
@@ -176,17 +163,8 @@ export default function Reports() {
       }))
       .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
-    const groupingMode: 'daily' | 'weekly' = viewMode === 'monthly' ? 'weekly' : 'daily';
-
-    const getKey = (date: Date): string => {
-      if (groupingMode === 'daily') return format(date, 'yyyy-MM-dd');
-      return format(startOfWeek(date, reportWeekOptions), 'yyyy-MM-dd');
-    };
-
-    const getLabel = (date: Date): string => {
-      if (groupingMode === 'daily') return format(date, 'dd/MM', { locale: ptBR });
-      return `Sem ${format(startOfWeek(date, reportWeekOptions), 'dd/MM', { locale: ptBR })}`;
-    };
+    const getKey = (date: Date): string => format(date, 'yyyy-MM-dd');
+    const getLabel = (date: Date): string => format(date, 'dd/MM', { locale: ptBR });
 
     const buckets: Record<string, { label: string; reused: number; swapped: number; discs: number }> = {};
 
@@ -205,7 +183,7 @@ export default function Reports() {
     return Object.entries(buckets)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([, v]) => v);
-  }, [filtered, viewMode]);
+  }, [filtered]);
 
   const exportPDF = async () => {
     const doc = new jsPDF();
@@ -236,9 +214,6 @@ export default function Reports() {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 14, y);
-    y += 5;
-    const viewLabel = viewMode === 'daily' ? 'Diária' : viewMode === 'weekly' ? 'Semanal' : 'Mensal';
-    doc.text(`Visão: ${viewLabel}`, 14, y);
     y += 5;
     if (reportInterval) {
       const fromDate = format(reportInterval.start, 'dd/MM/yyyy', { locale: ptBR });
@@ -406,36 +381,20 @@ export default function Reports() {
         ))}
       </div>
 
-      {/* View Mode Tabs */}
-      <div className="flex gap-1 mb-4 bg-muted rounded-lg p-1">
-        {([['daily', 'Diário'], ['weekly', 'Semanal'], ['monthly', 'Mensal']] as const).map(([mode, label]) => (
-          <button
-            key={mode}
-            onClick={() => setViewMode(mode)}
-            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
-              viewMode === mode
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            {label}
-          </button>
-        ))}
+      {/* Date Range Filter - always visible */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div>
+          <Label className="text-xs">Data inicial</Label>
+          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="mt-1 h-10 text-sm" />
+        </div>
+        <div>
+          <Label className="text-xs">Data final</Label>
+          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="mt-1 h-10 text-sm" />
+        </div>
       </div>
 
       {showFilters && (
         <div className="bg-card rounded-lg p-4 border border-border mb-4 space-y-3 animate-fade-in">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Data inicial</Label>
-              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="mt-1 h-10 text-sm" />
-            </div>
-            <div>
-              <Label className="text-xs">Data final</Label>
-              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="mt-1 h-10 text-sm" />
-            </div>
-          </div>
           <div>
             <Label className="text-xs">Tamanho</Label>
             <Input placeholder="Ex: 200mm" value={sizeFilter} onChange={e => setSizeFilter(e.target.value)} className="mt-1 h-10 text-sm" />
@@ -663,7 +622,7 @@ export default function Reports() {
             {timelineData.length > 0 && (
               <>
                 <h2 className="font-semibold text-sm mb-2 flex items-center gap-1">
-                  <Calendar className="w-4 h-4" /> Evolução {viewMode === 'daily' ? 'Diária' : viewMode === 'weekly' ? 'Semanal' : 'Mensal'}
+                  <Calendar className="w-4 h-4" /> Evolução
                 </h2>
                 <div className="bg-card rounded-lg border border-border p-4 mb-4">
                   <ResponsiveContainer width="100%" height={200}>
