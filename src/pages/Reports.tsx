@@ -622,7 +622,7 @@ export default function Reports() {
             {timelineData.length > 0 && (
               <>
                 <h2 className="font-semibold text-sm mb-2 flex items-center gap-1">
-                  <Calendar className="w-4 h-4" /> Evolução {viewMode === 'daily' ? 'Diária' : viewMode === 'weekly' ? 'Semanal' : 'Mensal'}
+                  <Calendar className="w-4 h-4" /> Evolução
                 </h2>
                 <div className="bg-card rounded-lg border border-border p-4 mb-4">
                   <ResponsiveContainer width="100%" height={200}>
