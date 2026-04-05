@@ -59,8 +59,8 @@ export default function Reports() {
   }, [allDiscs, sizeFilter, refFilter, equipmentFilter]);
 
   const reportInterval = useMemo(
-    () => getReportInterval(baseFiltered, viewMode, dateFrom, dateTo),
-    [baseFiltered, viewMode, dateFrom, dateTo],
+    () => getReportInterval(dateFrom, dateTo),
+    [dateFrom, dateTo],
   );
 
   const filtered = useMemo(() => {
