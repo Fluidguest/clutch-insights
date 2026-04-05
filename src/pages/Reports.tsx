@@ -37,7 +37,6 @@ export default function Reports() {
   const [refFilter, setRefFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
-  const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
   const [expandedDiscs, setExpandedDiscs] = useState<Record<string, boolean>>({});
   const chartsRef = useRef<HTMLDivElement>(null);
 
