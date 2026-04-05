@@ -164,17 +164,8 @@ export default function Reports() {
       }))
       .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
-    const groupingMode: 'daily' | 'weekly' = viewMode === 'monthly' ? 'weekly' : 'daily';
-
-    const getKey = (date: Date): string => {
-      if (groupingMode === 'daily') return format(date, 'yyyy-MM-dd');
-      return format(startOfWeek(date, reportWeekOptions), 'yyyy-MM-dd');
-    };
-
-    const getLabel = (date: Date): string => {
-      if (groupingMode === 'daily') return format(date, 'dd/MM', { locale: ptBR });
-      return `Sem ${format(startOfWeek(date, reportWeekOptions), 'dd/MM', { locale: ptBR })}`;
-    };
+    const getKey = (date: Date): string => format(date, 'yyyy-MM-dd');
+    const getLabel = (date: Date): string => format(date, 'dd/MM', { locale: ptBR });
 
     const buckets: Record<string, { label: string; reused: number; swapped: number; discs: number }> = {};
 
@@ -193,7 +184,7 @@ export default function Reports() {
     return Object.entries(buckets)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([, v]) => v);
-  }, [filtered, viewMode]);
+  }, [filtered]);
 
   const exportPDF = async () => {
     const doc = new jsPDF();
