@@ -216,9 +216,6 @@ export default function Reports() {
     doc.setFont('helvetica', 'normal');
     doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, 14, y);
     y += 5;
-    const viewLabel = viewMode === 'daily' ? 'Diária' : viewMode === 'weekly' ? 'Semanal' : 'Mensal';
-    doc.text(`Visão: ${viewLabel}`, 14, y);
-    y += 5;
     if (reportInterval) {
       const fromDate = format(reportInterval.start, 'dd/MM/yyyy', { locale: ptBR });
       const toDate = format(reportInterval.end, 'dd/MM/yyyy', { locale: ptBR });
