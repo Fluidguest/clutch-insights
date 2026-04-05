@@ -467,6 +467,116 @@ export default function Reports() {
 
       {stats.totalParts > 0 && (
         <>
+          {/* Ranking por Referência */}
+          {rankingByRef.length > 0 && (
+            <>
+              <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-primary" /> Ranking por Referência
+              </h2>
+              <div className="bg-card rounded-lg border border-border mb-4 divide-y divide-border">
+                {rankingByRef.map((item, idx) => {
+                  const isOpen = expandedRefs[item.ref];
+                  const reusePct = item.total > 0 ? Math.round((item.reused / item.total) * 100) : 0;
+                  return (
+                    <div key={item.ref}>
+                      <button
+                        onClick={() => setExpandedRefs(prev => ({ ...prev, [item.ref]: !prev[item.ref] }))}
+                        className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-muted-foreground w-5">#{idx + 1}</span>
+                          <div>
+                            <p className="text-sm font-medium">Ref: {item.ref}</p>
+                            <p className="text-xs text-muted-foreground">{item.discs.length} equip. · {item.total} peças</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs shrink-0">
+                          <span className="text-success font-semibold">{reusePct}%</span>
+                          <div className="w-16 h-2 bg-destructive/20 rounded-full overflow-hidden">
+                            <div className="h-full bg-success rounded-full" style={{ width: `${reusePct}%` }} />
+                          </div>
+                          <svg className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div className="px-3 pb-3 space-y-1 animate-fade-in">
+                          <div className="flex justify-between text-xs px-2 py-1 text-muted-foreground">
+                            <span>Reaproveitadas: <strong className="text-success">{item.reused}</strong></span>
+                            <span>Trocadas: <strong className="text-destructive">{item.swapped}</strong></span>
+                          </div>
+                          {item.discs.map(disc => (
+                            <div key={disc.id} className="px-2 py-1.5 rounded-md bg-muted/30 text-xs space-y-0.5">
+                              <p className="font-medium">{disc.equipmentType === 'plator' ? 'Plator' : 'Disco'} - {disc.size} · {format(parseReportDate(disc.date), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                              {disc.parts.map((p, i) => (
+                                <div key={i} className="flex justify-between pl-2">
+                                  <span>{p.name}</span>
+                                  <span><span className="text-success">R:{p.quantity || 0}</span> <span className="text-destructive">T:{p.swappedQuantity || 0}</span></span>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Ranking por Peça */}
+          {rankingByPart.length > 0 && (
+            <>
+              <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-primary" /> Ranking por Peça
+              </h2>
+              <div className="bg-card rounded-lg border border-border mb-4 divide-y divide-border">
+                {rankingByPart.map((item, idx) => {
+                  const isOpen = expandedParts[item.name];
+                  const reusePct = item.total > 0 ? Math.round((item.reused / item.total) * 100) : 0;
+                  const refEntries = Object.entries(item.refs).sort((a, b) => (b[1].reused + b[1].swapped) - (a[1].reused + a[1].swapped));
+                  return (
+                    <div key={item.name}>
+                      <button
+                        onClick={() => setExpandedParts(prev => ({ ...prev, [item.name]: !prev[item.name] }))}
+                        className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-muted-foreground w-5">#{idx + 1}</span>
+                          <div>
+                            <p className="text-sm font-medium">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">{item.total} un. total</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs shrink-0">
+                          <span className="text-success font-semibold">{reusePct}%</span>
+                          <div className="w-16 h-2 bg-destructive/20 rounded-full overflow-hidden">
+                            <div className="h-full bg-success rounded-full" style={{ width: `${reusePct}%` }} />
+                          </div>
+                          <svg className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div className="px-3 pb-3 space-y-1 animate-fade-in">
+                          <div className="flex justify-between text-xs px-2 py-1 text-muted-foreground">
+                            <span>Reaproveitadas: <strong className="text-success">{item.reused}</strong></span>
+                            <span>Trocadas: <strong className="text-destructive">{item.swapped}</strong></span>
+                          </div>
+                          {refEntries.map(([ref, v]) => (
+                            <div key={ref} className="flex justify-between items-center px-2 py-1.5 rounded-md bg-muted/30 text-xs">
+                              <span>Ref: {ref}</span>
+                              <span><span className="text-success">R:{v.reused}</span> <span className="text-destructive">T:{v.swapped}</span></span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
           {Object.keys(partsByName.swapMap).length > 0 && (
             <>
               <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
