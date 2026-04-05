@@ -14,30 +14,18 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { toast } from '@/hooks/use-toast';
 
-type ViewMode = 'daily' | 'weekly' | 'monthly';
 type EquipmentFilter = 'all' | EquipmentType;
-
-const reportWeekOptions = { weekStartsOn: 1 as const };
 
 const parseReportDate = (value: string) => new Date(`${value}T12:00:00`);
 
-const getReportInterval = (discs: Disc[], viewMode: ViewMode, dateFrom: string, dateTo: string) => {
-  if (discs.length === 0 && !dateFrom && !dateTo) return null;
-
-  const fallbackDate = discs.reduce<Date | null>((latest, disc) => {
-    const currentDate = parseReportDate(disc.date);
-    if (Number.isNaN(currentDate.getTime())) return latest;
-    if (!latest || currentDate > latest) return currentDate;
-    return latest;
-  }, null) ?? new Date();
-
-  const startReference = dateFrom ? parseReportDate(dateFrom) : dateTo ? parseReportDate(dateTo) : fallbackDate;
-  const endReference = dateTo ? parseReportDate(dateTo) : dateFrom ? parseReportDate(dateFrom) : fallbackDate;
-  const [rangeStart, rangeEnd] = startReference <= endReference ? [startReference, endReference] : [endReference, startReference];
-
-  if (viewMode === 'daily') return { start: startOfDay(rangeStart), end: endOfDay(rangeEnd) };
-  if (viewMode === 'weekly') return { start: startOfWeek(rangeStart, reportWeekOptions), end: endOfWeek(rangeEnd, reportWeekOptions) };
-  return { start: startOfMonth(rangeStart), end: endOfMonth(rangeEnd) };
+const getReportInterval = (dateFrom: string, dateTo: string) => {
+  if (!dateFrom && !dateTo) return null;
+  const start = dateFrom ? startOfDay(parseReportDate(dateFrom)) : null;
+  const end = dateTo ? endOfDay(parseReportDate(dateTo)) : null;
+  if (start && end) return start <= end ? { start, end } : { start: end, end: start };
+  if (start) return { start, end: endOfDay(start) };
+  if (end) return { start: startOfDay(end), end };
+  return null;
 };
 
 export default function Reports() {
