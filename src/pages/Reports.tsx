@@ -382,36 +382,20 @@ export default function Reports() {
         ))}
       </div>
 
-      {/* View Mode Tabs */}
-      <div className="flex gap-1 mb-4 bg-muted rounded-lg p-1">
-        {([['daily', 'Diário'], ['weekly', 'Semanal'], ['monthly', 'Mensal']] as const).map(([mode, label]) => (
-          <button
-            key={mode}
-            onClick={() => setViewMode(mode)}
-            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
-              viewMode === mode
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            {label}
-          </button>
-        ))}
+      {/* Date Range Filter - always visible */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div>
+          <Label className="text-xs">Data inicial</Label>
+          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="mt-1 h-10 text-sm" />
+        </div>
+        <div>
+          <Label className="text-xs">Data final</Label>
+          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="mt-1 h-10 text-sm" />
+        </div>
       </div>
 
       {showFilters && (
         <div className="bg-card rounded-lg p-4 border border-border mb-4 space-y-3 animate-fade-in">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Data inicial</Label>
-              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="mt-1 h-10 text-sm" />
-            </div>
-            <div>
-              <Label className="text-xs">Data final</Label>
-              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="mt-1 h-10 text-sm" />
-            </div>
-          </div>
           <div>
             <Label className="text-xs">Tamanho</Label>
             <Input placeholder="Ex: 200mm" value={sizeFilter} onChange={e => setSizeFilter(e.target.value)} className="mt-1 h-10 text-sm" />
