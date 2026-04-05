@@ -50,7 +50,12 @@ export default function Reports() {
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>('all');
+  const [expandedDiscs, setExpandedDiscs] = useState<Record<string, boolean>>({});
   const chartsRef = useRef<HTMLDivElement>(null);
+
+  const toggleDisc = (id: string) => {
+    setExpandedDiscs(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   useEffect(() => {
     getAllDiscs().then(d => { setAllDiscs(d); setLoading(false); }).catch(() => setLoading(false));
