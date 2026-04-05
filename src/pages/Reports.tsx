@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Filter, TrendingUp, FileDown, Recycle, RefreshCw, Calendar, Disc as DiscIcon, CircleDot } from 'lucide-react';
-import { endOfDay, endOfMonth, endOfWeek, format, isWithinInterval, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
+import { endOfDay, format, isWithinInterval, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
