@@ -693,3 +693,21 @@ function StatCard({ label, value, accent }: { label: string; value: string | num
     </div>
   );
 }
+
+function RankingSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-4">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between mb-2 active:scale-[0.98] transition-transform"
+      >
+        <h2 className="font-semibold text-sm flex items-center gap-1.5">
+          {icon} {title}
+        </h2>
+        <svg className={`w-4 h-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </button>
+      {open && <div className="animate-fade-in">{children}</div>}
+    </div>
+  );
+}
