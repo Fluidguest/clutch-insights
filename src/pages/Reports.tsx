@@ -542,11 +542,11 @@ export default function Reports() {
           )}
 
           {Object.keys(partsByName.swapMap).length > 0 && (
-            <>
-              <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
-                <RefreshCw className="w-4 h-4 text-destructive" /> Peças Substituídas
-              </h2>
-              <div className="bg-card rounded-lg border border-border p-3 mb-4 space-y-1.5">
+            <RankingSection
+              title="Peças Substituídas"
+              icon={<RefreshCw className="w-4 h-4 text-destructive" />}
+            >
+              <div className="bg-card rounded-lg border border-border p-3 space-y-1.5">
                 {Object.entries(partsByName.swapMap).sort((a, b) => b[1] - a[1]).map(([name, qty]) => (
                   <div key={name} className="flex justify-between items-center py-1.5 px-2 rounded-md bg-destructive/5">
                     <span className="text-sm">{name}</span>
@@ -554,15 +554,15 @@ export default function Reports() {
                   </div>
                 ))}
               </div>
-            </>
+            </RankingSection>
           )}
 
           {Object.keys(partsByName.reuseMap).length > 0 && (
-            <>
-              <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
-                <Recycle className="w-4 h-4 text-success" /> Peças Reaproveitadas
-              </h2>
-              <div className="bg-card rounded-lg border border-border p-3 mb-4 space-y-1.5">
+            <RankingSection
+              title="Peças Reaproveitadas"
+              icon={<Recycle className="w-4 h-4 text-success" />}
+            >
+              <div className="bg-card rounded-lg border border-border p-3 space-y-1.5">
                 {Object.entries(partsByName.reuseMap).sort((a, b) => b[1] - a[1]).map(([name, qty]) => (
                   <div key={name} className="flex justify-between items-center py-1.5 px-2 rounded-md bg-success/5">
                     <span className="text-sm">{name}</span>
@@ -570,57 +570,59 @@ export default function Reports() {
                   </div>
                 ))}
               </div>
-            </>
+            </RankingSection>
           )}
 
-          <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
-            <DiscIcon className="w-4 h-4" /> Detalhamento por Equipamento
-          </h2>
-          <div className="bg-card rounded-lg border border-border mb-4 divide-y divide-border">
-            {filtered.map((disc) => {
-              const typeLabel = disc.equipmentType === 'plator' ? 'Plator' : 'Disco';
-              const discReused = disc.parts.reduce((s, p) => s + (p.quantity || 0), 0);
-              const discSwapped = disc.parts.reduce((s, p) => s + (p.swappedQuantity || 0), 0);
-              const isExpanded = expandedDiscs[disc.id];
-              return (
-                <div key={disc.id}>
-                  <button
-                    onClick={() => toggleDisc(disc.id)}
-                    className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/50 transition-colors"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{typeLabel} - {disc.size}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(parseReportDate(disc.date), 'dd/MM/yyyy', { locale: ptBR })} · Ref: {disc.referenceNumber} · Prod: {disc.productionNumber}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs shrink-0">
-                      <span className="text-success font-semibold">{discReused}</span>
-                      <span className="text-muted-foreground">/</span>
-                      <span className="text-destructive font-semibold">{discSwapped}</span>
-                      <svg className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </div>
-                  </button>
-                  {isExpanded && (
-                    <div className="px-3 pb-3 space-y-1 animate-fade-in">
-                      {disc.parts.map((p, i) => (
-                        <div key={i} className="flex justify-between items-center py-1.5 px-2 rounded-md bg-muted/30 text-sm">
-                          <span>{p.name}</span>
-                          <div className="flex gap-3 text-xs">
-                            <span className="text-success font-medium">Reaprov: {p.quantity || 0}</span>
-                            <span className="text-destructive font-medium">Troca: {p.swappedQuantity || 0}</span>
+          <RankingSection
+            title="Detalhamento por Equipamento"
+            icon={<DiscIcon className="w-4 h-4" />}
+          >
+            <div className="bg-card rounded-lg border border-border divide-y divide-border">
+              {filtered.map((disc) => {
+                const typeLabel = disc.equipmentType === 'plator' ? 'Plator' : 'Disco';
+                const discReused = disc.parts.reduce((s, p) => s + (p.quantity || 0), 0);
+                const discSwapped = disc.parts.reduce((s, p) => s + (p.swappedQuantity || 0), 0);
+                const isExpanded = expandedDiscs[disc.id];
+                return (
+                  <div key={disc.id}>
+                    <button
+                      onClick={() => toggleDisc(disc.id)}
+                      className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/50 transition-colors"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{typeLabel} - {disc.size}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(parseReportDate(disc.date), 'dd/MM/yyyy', { locale: ptBR })} · Ref: {disc.referenceNumber} · Prod: {disc.productionNumber}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs shrink-0">
+                        <span className="text-success font-semibold">{discReused}</span>
+                        <span className="text-muted-foreground">/</span>
+                        <span className="text-destructive font-semibold">{discSwapped}</span>
+                        <svg className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </div>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-3 pb-3 space-y-1 animate-fade-in">
+                        {disc.parts.map((p, i) => (
+                          <div key={i} className="flex justify-between items-center py-1.5 px-2 rounded-md bg-muted/30 text-sm">
+                            <span>{p.name}</span>
+                            <div className="flex gap-3 text-xs">
+                              <span className="text-success font-medium">Reaprov: {p.quantity || 0}</span>
+                              <span className="text-destructive font-medium">Troca: {p.swappedQuantity || 0}</span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                      {disc.observation && (
-                        <p className="text-xs text-muted-foreground italic px-2">Obs: {disc.observation}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                        ))}
+                        {disc.observation && (
+                          <p className="text-xs text-muted-foreground italic px-2">Obs: {disc.observation}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </RankingSection>
 
           <div ref={chartsRef} className="space-y-4">
             {timelineData.length > 0 && (
