@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllDiscs, type Disc, type EquipmentType } from '@/lib/db';
 import logoImg from '@/assets/logo.png';
 import { Input } from '@/components/ui/input';
