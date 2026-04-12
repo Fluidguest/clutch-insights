@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getDisc, deleteDisc, type Disc } from '@/lib/db';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Recycle, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Recycle, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
@@ -85,9 +85,14 @@ export default function DiscDetail() {
         })}
       </div>
 
-      <Button variant="destructive" onClick={handleDelete} className="w-full h-12">
-        <Trash2 className="w-4 h-4 mr-2" /> Excluir {typeLabel}
-      </Button>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={() => navigate(`/disc/${disc.id}/edit`)} className="flex-1 h-12">
+          <Pencil className="w-4 h-4 mr-2" /> Editar
+        </Button>
+        <Button variant="destructive" onClick={handleDelete} className="flex-1 h-12">
+          <Trash2 className="w-4 h-4 mr-2" /> Excluir
+        </Button>
+      </div>
     </div>
   );
 }
