@@ -439,11 +439,11 @@ export default function Reports() {
       {stats.totalParts > 0 && (
         <>
           {rankingByRef.length > 0 && (
-            <>
-              <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-primary" /> Ranking por Referência (Top 5)
-              </h2>
-              <div className="bg-card rounded-lg border border-border mb-4 divide-y divide-border">
+            <RankingSection
+              title="Ranking por Referência (Top 5)"
+              icon={<TrendingUp className="w-4 h-4 text-primary" />}
+            >
+              <div className="bg-card rounded-lg border border-border divide-y divide-border">
                 {rankingByRef.map((item, idx) => {
                   const reusePct = item.total > 0 ? Math.round((item.reused / item.total) * 100) : 0;
                   const isOpen = expandedRefs[item.ref];
@@ -486,15 +486,15 @@ export default function Reports() {
                   );
                 })}
               </div>
-            </>
+            </RankingSection>
           )}
 
           {rankingByPart.length > 0 && (
-            <>
-              <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
-                <Recycle className="w-4 h-4 text-success" /> Ranking por Peça (Top 5)
-              </h2>
-              <div className="bg-card rounded-lg border border-border mb-4 divide-y divide-border">
+            <RankingSection
+              title="Ranking por Peça (Top 5)"
+              icon={<Recycle className="w-4 h-4 text-success" />}
+            >
+              <div className="bg-card rounded-lg border border-border divide-y divide-border">
                 {rankingByPart.map((item, idx) => {
                   const reusePct = item.total > 0 ? Math.round((item.reused / item.total) * 100) : 0;
                   const isOpen = expandedParts[item.name];
@@ -538,7 +538,7 @@ export default function Reports() {
                   );
                 })}
               </div>
-            </>
+            </RankingSection>
           )}
 
           {Object.keys(partsByName.swapMap).length > 0 && (
