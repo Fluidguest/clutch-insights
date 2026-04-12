@@ -210,6 +210,37 @@ export async function saveDisc(disc: Omit<Disc, 'id' | 'createdAt'>): Promise<vo
   if (partsError) throw partsError;
 }
 
+export async function updateDisc(id: string, disc: Omit<Disc, 'id' | 'createdAt'>): Promise<void> {
+  const { error } = await (supabase as any)
+    .from('discs')
+    .update({
+      date: disc.date,
+      size: disc.size,
+      reference_number: disc.referenceNumber,
+      production_number: disc.productionNumber,
+      observation: disc.observation || null,
+      equipment_type: disc.equipmentType || 'disco',
+    })
+    .eq('id', id);
+
+  if (error) throw error;
+
+  // Delete existing parts and re-insert
+  const { error: delError } = await supabase.from('disc_parts').delete().eq('disc_id', id);
+  if (delError) throw delError;
+
+  const partsToInsert = disc.parts.map(p => ({
+    disc_id: id,
+    name: p.name,
+    status: p.swappedQuantity > 0 ? 'trocar' : 'reaproveitar',
+    quantity: p.quantity,
+    swapped_quantity: p.swappedQuantity,
+  }));
+
+  const { error: partsError } = await supabase.from('disc_parts').insert(partsToInsert);
+  if (partsError) throw partsError;
+}
+
 export async function deleteDisc(id: string): Promise<void> {
   const { error } = await supabase.from('discs').delete().eq('id', id);
   if (error) throw error;

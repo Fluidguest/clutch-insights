@@ -7,6 +7,7 @@ import BottomNav from "@/components/BottomNav";
 import DiscList from "@/pages/DiscList";
 import NewDisc from "@/pages/NewDisc";
 import DiscDetail from "@/pages/DiscDetail";
+import EditDisc from "@/pages/EditDisc";
 import Reports from "@/pages/Reports";
 import Admin from "@/pages/Admin";
 import Auth from "@/pages/Auth";
@@ -35,6 +36,7 @@ function AppRoutes() {
         <Route path="/" element={<DiscList />} />
         <Route path="/new" element={<NewDisc />} />
         <Route path="/disc/:id" element={<DiscDetail />} />
+        <Route path="/disc/:id/edit" element={<EditDisc />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="*" element={<NotFound />} />

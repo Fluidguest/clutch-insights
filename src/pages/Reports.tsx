@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getAllDiscs, type Disc, type EquipmentType } from '@/lib/db';
 import logoImg from '@/assets/logo.png';
 import { Input } from '@/components/ui/input';
@@ -439,11 +439,11 @@ export default function Reports() {
       {stats.totalParts > 0 && (
         <>
           {rankingByRef.length > 0 && (
-            <>
-              <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-primary" /> Ranking por Referência (Top 5)
-              </h2>
-              <div className="bg-card rounded-lg border border-border mb-4 divide-y divide-border">
+            <RankingSection
+              title="Ranking por Referência (Top 5)"
+              icon={<TrendingUp className="w-4 h-4 text-primary" />}
+            >
+              <div className="bg-card rounded-lg border border-border divide-y divide-border">
                 {rankingByRef.map((item, idx) => {
                   const reusePct = item.total > 0 ? Math.round((item.reused / item.total) * 100) : 0;
                   const isOpen = expandedRefs[item.ref];
@@ -486,15 +486,15 @@ export default function Reports() {
                   );
                 })}
               </div>
-            </>
+            </RankingSection>
           )}
 
           {rankingByPart.length > 0 && (
-            <>
-              <h2 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
-                <Recycle className="w-4 h-4 text-success" /> Ranking por Peça (Top 5)
-              </h2>
-              <div className="bg-card rounded-lg border border-border mb-4 divide-y divide-border">
+            <RankingSection
+              title="Ranking por Peça (Top 5)"
+              icon={<Recycle className="w-4 h-4 text-success" />}
+            >
+              <div className="bg-card rounded-lg border border-border divide-y divide-border">
                 {rankingByPart.map((item, idx) => {
                   const reusePct = item.total > 0 ? Math.round((item.reused / item.total) * 100) : 0;
                   const isOpen = expandedParts[item.name];
@@ -538,7 +538,7 @@ export default function Reports() {
                   );
                 })}
               </div>
-            </>
+            </RankingSection>
           )}
 
           {Object.keys(partsByName.swapMap).length > 0 && (
@@ -690,6 +690,24 @@ function StatCard({ label, value, accent }: { label: string; value: string | num
     <div className={`rounded-lg p-4 border text-center ${accent ? 'bg-primary/10 border-primary/30' : 'bg-card border-border'}`}>
       <p className={`text-2xl font-bold ${accent ? 'text-primary' : 'text-foreground'}`}>{value}</p>
       <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+    </div>
+  );
+}
+
+function RankingSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-4">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between mb-2 active:scale-[0.98] transition-transform"
+      >
+        <h2 className="font-semibold text-sm flex items-center gap-1.5">
+          {icon} {title}
+        </h2>
+        <svg className={`w-4 h-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </button>
+      {open && <div className="animate-fade-in">{children}</div>}
     </div>
   );
 }
